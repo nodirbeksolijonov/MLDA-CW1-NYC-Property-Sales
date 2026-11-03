@@ -19,8 +19,10 @@ and identifies which factors drive price the most.
 
 ```
 ML_CW/
-├── MLDA_CW1_NYC_Property_Sales.ipynb   # main analysis notebook (EDA → preparation → models → evaluation)
-├── 2025_*.xlsx                         # raw borough sales files
+├── data/                               # raw borough sales files (2025_*.xlsx)
+├── notebooks/
+│   └── MLDA_CW1_NYC_Property_Sales.ipynb   # main analysis (EDA → preparation → models → evaluation)
+├── models/                             # trained models saved by the notebook (not committed)
 ├── requirements.txt                    # pinned dependencies
 ├── LICENSE
 └── README.md
@@ -32,8 +34,8 @@ Requires **Python 3.13**.
 
 ```bash
 # 1. Clone the repository
-git clone <repo-url>
-cd ML_CW
+git clone https://github.com/nodirbeksolijonov/MLDA-CW1-NYC-Property-Sales.git
+cd MLDA-CW1-NYC-Property-Sales
 
 # 2. Create and activate a virtual environment
 python3 -m venv .venv
@@ -46,10 +48,10 @@ pip install -r requirements.txt
 ## Running the notebook
 
 ```bash
-jupyter notebook MLDA_CW1_NYC_Property_Sales.ipynb
+jupyter notebook notebooks/MLDA_CW1_NYC_Property_Sales.ipynb
 ```
 
-Run all cells from top to bottom. A fixed random seed (`RANDOM_STATE = 42`) makes results reproducible.
+Run all cells from top to bottom. The notebook reads the raw files from `../data/`, so keep the folder structure as it is. A fixed random seed (`RANDOM_STATE = 42`) makes results reproducible.
 
 ## Running the Streamlit app
 
