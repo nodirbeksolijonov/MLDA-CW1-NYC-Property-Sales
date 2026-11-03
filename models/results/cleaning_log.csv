@@ -1,0 +1,5 @@
+step,rows
+Start: 1-3 family market sales (>= $10k),19645
+Remove sales whose building class changed,19495
+Remove multi-lot package sales,19314
+Remove low price-per-sqft outliers (non-market),18664

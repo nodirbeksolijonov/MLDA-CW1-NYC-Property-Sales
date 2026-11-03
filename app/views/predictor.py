@@ -1,0 +1,109 @@
+import numpy as np
+import plotly.graph_objects as go
+import streamlit as st
+
+from utils import (BOROUGHS, BUILDING_CLASSES, HIGHLIGHT, HOME_TYPES, MUTED, build_features, load_homes,
+                   load_model, load_results, money, money_md, page_header)
+
+homes = load_homes()
+model = load_model()
+test_pred = load_results("test_predictions")
+
+page_header("Price predictor",
+            "Estimate the 2025 sale price of a 1–3 family home with the final Gradient Boosting model")
+
+# ---- Inputs ----
+c1, c2, c3 = st.columns(3)
+borough = c1.selectbox("Borough", BOROUGHS, index=BOROUGHS.index("Queens"))
+in_borough = homes[homes["borough_name"] == borough]
+nb_counts = in_borough["neighborhood"].value_counts()
+nb_options = sorted(nb_counts.index)
+neighborhood = c2.selectbox("Neighbourhood", nb_options, index=nb_options.index(nb_counts.idxmax()),
+                            format_func=lambda n: f"{n.title()} ({nb_counts[n]} sales)")
+home_type = c3.selectbox("Home type", HOME_TYPES)
+
+class_counts = homes.loc[homes["home_type"] == home_type, "building_class_at_time_of_sale"].value_counts()
+c1, c2, c3 = st.columns(3)
+building_class = c1.selectbox("Building class", class_counts.index,
+                              format_func=lambda c: f"{c}: {BUILDING_CLASSES.get(c, c)}")
+
+similar = homes[(homes["neighborhood"] == neighborhood) & (homes["home_type"] == home_type)]
+defaults = similar if len(similar) >= 3 else homes[homes["home_type"] == home_type]
+size_known = not c2.checkbox("Floor and land area unknown", value=False,
+                             help="The model then fills in typical sizes, as it does for missing values in the data")
+year_built = c3.number_input("Year built", 1800, 2025, int(defaults["year_built"].median()), step=1)
+
+c1, c2, c3 = st.columns(3)
+gross = c1.number_input("Gross floor area (sq ft)", 300, 20_000, int(defaults["gross_square_feet"].median()),
+                        step=50, disabled=not size_known)
+land = c2.number_input("Land area (sq ft)", 200, 50_000, int(defaults["land_square_feet"].median()),
+                       step=50, disabled=not size_known)
+quarter = c3.selectbox("Quarter of sale (2025)", [1, 2, 3, 4], index=3, format_func=lambda q: f"Q{q}")
+
+# ---- Prediction ----
+X = build_features(borough, neighborhood, home_type, building_class,
+                   gross if size_known else None, land if size_known else None, year_built, quarter)
+estimate = float(np.exp(model.predict(X)[0]))
+
+# Realistic range from the model's errors on the unseen test set:
+# actual = predicted / exp(residual), so residual quantiles turn into a price range
+res = test_pred["residual_log"]
+low50, high50 = estimate / np.exp(res.quantile([0.75, 0.25]))
+low80, high80 = estimate / np.exp(res.quantile([0.90, 0.10]))
+
+st.divider()
+m1, m2, m3 = st.columns(3)
+m1.metric("Estimated sale price", money(estimate))
+m2.metric("Likely range (50% of similar sales)", f"{money_md(low50)} – {money_md(high50)}")
+m3.metric("Wide range (80% of similar sales)", f"{money_md(low80)} – {money_md(high80)}")
+st.caption("The ranges come from how far the model's predictions were from the real prices of 2,800 test-set "
+           "sales it had never seen: half of those sales fell inside the 50% range, 80% inside the wide range.")
+
+if borough == "Manhattan":
+    st.warning("Manhattan has very few 1–3 family sales (the model's median error there is about 24%), "
+               "so treat this estimate with extra caution.")
+if nb_counts[neighborhood] < 5:
+    st.warning(f"Only {nb_counts[neighborhood]} sale(s) in {neighborhood.title()} in 2025, so the model knows "
+               "little about this neighbourhood's price level.")
+
+# ---- Comparable sales ----
+st.subheader("Comparable sales in the same neighbourhood")
+comps = similar.dropna(subset=["gross_square_feet"]).copy()
+if size_known and not comps.empty:
+    comps["size_diff"] = (comps["gross_square_feet"] / gross - 1).abs()
+    comps = comps[comps["size_diff"] <= 0.3].sort_values("size_diff")
+comps = comps.head(10)
+
+if comps.empty:
+    st.info(f"No {home_type} sales of a similar size in {neighborhood.title()} in 2025.")
+else:
+    left, right = st.columns([3, 2])
+    with left:
+        comps["price_text"] = comps["sale_price"].map("${:,.0f}".format)
+        st.dataframe(comps[["building_class_at_time_of_sale", "gross_square_feet", "land_square_feet",
+                            "year_built", "sale_date", "price_text"]]
+                     .rename(columns={"building_class_at_time_of_sale": "class", "gross_square_feet": "floor sq ft",
+                                      "land_square_feet": "land sq ft", "year_built": "built",
+                                      "sale_date": "sold", "price_text": "price"}),
+                     hide_index=True, width="stretch",
+                     column_config={"sold": st.column_config.DateColumn(format="MMM YYYY"),
+                                    "built": st.column_config.NumberColumn(format="%d")})
+    with right:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=comps["sale_price"], y=["Comparable sales"] * len(comps), mode="markers",
+                                 marker=dict(size=12, color=MUTED, line=dict(width=2, color="white")),
+                                 name="Comparable sale", hovertemplate="%{x:$,.0f}<extra></extra>"))
+        fig.add_trace(go.Scatter(x=[estimate], y=["Comparable sales"], mode="markers",
+                                 marker=dict(size=18, color=HIGHLIGHT, symbol="diamond",
+                                             line=dict(width=2, color="white")),
+                                 name="Model estimate", hovertemplate="Estimate %{x:$,.0f}<extra></extra>"))
+        fig.update_layout(height=260, title="Estimate vs comparable sales", xaxis_tickformat="$,.2s",
+                          yaxis_visible=False, legend=dict(orientation="h", y=-0.35), margin=dict(t=50))
+        st.plotly_chart(fig, theme="streamlit", width="stretch")
+    st.caption("Comparables: same neighbourhood and home type, floor area within 30% of the home described "
+               "above, closest size first.")
+
+with st.expander("What the model receives"):
+    st.dataframe(X, hide_index=True, width="stretch")
+    st.caption("Sizes are log-transformed and building age is computed exactly as in the notebook. "
+               "The saved pipeline then imputes, scales and encodes these values before the model predicts.")

@@ -19,10 +19,19 @@ and identifies which factors drive price the most.
 
 ```
 ML_CW/
-├── data/                               # raw borough sales files (2025_*.xlsx)
+├── data/
+│   ├── 2025_*.xlsx                     # raw borough sales files
+│   └── processed/homes_2025_clean.csv  # cleaned dataset exported by the notebook (used by the app)
 ├── notebooks/
 │   └── MLDA_CW1_NYC_Property_Sales.ipynb   # main analysis (EDA → preparation → models → evaluation)
-├── models/                             # trained models saved by the notebook (not committed)
+├── models/
+│   ├── final_model.joblib              # final pipeline (preprocessing + Gradient Boosting), 0.5 MB
+│   └── results/                        # model comparison, test predictions, feature importance
+├── app/
+│   ├── streamlit_app.py                # app entry point (multi-page navigation)
+│   ├── utils.py                        # shared loading, feature engineering and styling
+│   └── views/                          # overview, dashboard, predictor, model performance, data & method
+├── .streamlit/config.toml              # app theme
 ├── requirements.txt                    # pinned dependencies
 ├── LICENSE
 └── README.md
@@ -55,7 +64,21 @@ Run all cells from top to bottom. The notebook reads the raw files from `../data
 
 ## Running the Streamlit app
 
-*(Coming soon.)*
+```bash
+streamlit run app/streamlit_app.py
+```
+
+The app opens at http://localhost:8501 and has five pages:
+
+| Page | What it shows |
+|---|---|
+| **Overview** | Project summary and headline results |
+| **Market dashboard** | Filters by borough, home type and quarter; prices by borough, price distribution, monthly trends, most/least expensive neighbourhoods, size vs price |
+| **Price predictor** | Estimated 2025 price for a home you describe, with a realistic range and comparable sales |
+| **Model performance** | Comparison of the four tuned models, test-set accuracy, errors by borough and price band, feature importance |
+| **Data & method** | Data source, cleaning steps, features and limitations |
+
+The app reads the files saved by the notebook (`data/processed/`, `models/`). They are included in the repository, so the app works without re-running the notebook. Re-running the notebook regenerates them.
 
 ## Licence
 

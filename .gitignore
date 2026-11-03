@@ -24,3 +24,6 @@ models/*.joblib
 
 # Lecture slides (course material, not for the public repo)
 lectures/
+
+# The final model is small (0.5 MB) and is needed by the deployed app
+!models/final_model.joblib
