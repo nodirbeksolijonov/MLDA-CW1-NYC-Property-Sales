@@ -6,6 +6,8 @@ An end-to-end machine learning project that predicts the sale price of 1–3 fam
 homes in New York City from their physical characteristics, location and sale timing,
 and identifies which factors drive price the most.
 
+**Live app:** https://nycprices.streamlit.app/
+
 ## Dataset
 
 **NYC Department of Finance — Annualized Property Sales, calendar year 2025**
@@ -63,6 +65,8 @@ jupyter notebook notebooks/MLDA_CW1_NYC_Property_Sales.ipynb
 Run all cells from top to bottom. The notebook reads the raw files from `../data/`, so keep the folder structure as it is. A fixed random seed (`RANDOM_STATE = 42`) makes results reproducible.
 
 ## Running the Streamlit app
+
+The deployed version is at https://nycprices.streamlit.app/. To run it locally:
 
 ```bash
 streamlit run app/streamlit_app.py
