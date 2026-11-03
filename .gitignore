@@ -21,3 +21,6 @@ models/*.joblib
 *.pdf
 *.docx
 ~$*
+
+# Lecture slides (course material, not for the public repo)
+lectures/
