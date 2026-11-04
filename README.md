@@ -34,7 +34,9 @@ ML_CW/
 │   ├── utils.py                        # shared loading, feature engineering and styling
 │   └── views/                          # overview, dashboard, predictor, model performance, data & method
 ├── .streamlit/config.toml              # app theme
-├── requirements.txt                    # pinned dependencies
+├── requirements.txt                    # pinned direct dependencies
+├── requirements-lock.txt               # full lock file (all sub-dependencies, exact versions)
+├── Dockerfile                          # containerised environment
 ├── LICENSE
 └── README.md
 ```
@@ -52,8 +54,25 @@ cd MLDA-CW1-NYC-Property-Sales
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# 3. Install dependencies
-pip install -r requirements.txt
+# 3. Install the exact package versions
+pip install -r requirements-lock.txt
+```
+
+`requirements.txt` lists the direct dependencies; `requirements-lock.txt` pins every package, including
+sub-dependencies, to the versions the results were produced with. Running the notebook in a fresh environment
+built from the lock file reproduces all reported results exactly.
+
+### Alternative: Docker
+
+```bash
+docker build -t nyc-home-prices .
+
+# Run the Streamlit app at http://localhost:8501
+docker run --rm -p 8501:8501 nyc-home-prices
+
+# Re-run the whole notebook inside the container (results are written back to your folder)
+docker run --rm -v "$(pwd)":/project nyc-home-prices \
+    jupyter nbconvert --to notebook --execute --inplace notebooks/MLDA_CW1_NYC_Property_Sales.ipynb
 ```
 
 ## Running the notebook
