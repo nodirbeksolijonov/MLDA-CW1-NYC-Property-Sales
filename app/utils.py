@@ -38,7 +38,7 @@ BUILDING_CLASSES = {
 
 FEATURE_LABELS = {
     "neighborhood": "Neighbourhood", "log_gross_sqft": "Building size", "log_land_sqft": "Land size",
-    "borough_name": "Borough", "building_age": "Building age", "home_type": "Home type",
+    "zip_code": "ZIP code", "borough_name": "Borough", "building_age": "Building age", "home_type": "Home type",
     "building_class_at_time_of_sale": "Building class", "floor_area_ratio": "Floor area ratio",
     "sale_quarter": "Sale quarter", "has_commercial": "Has a shop/office",
 }
@@ -49,6 +49,7 @@ def load_homes() -> pd.DataFrame:
     df = pd.read_csv(DATA_FILE, index_col="row_id", parse_dates=["sale_date"])
     df["sale_month"] = df["sale_date"].dt.to_period("M").dt.to_timestamp()
     df["neighborhood_title"] = df["neighborhood"].str.title()
+    df["zip_code"] = df["zip_code"].astype(str)   # a label, as in the notebook
     return df
 
 
@@ -62,7 +63,7 @@ def load_results(name: str) -> pd.DataFrame:
     return pd.read_csv(RESULTS_DIR / f"{name}.csv", index_col=0)
 
 
-def build_features(borough, neighborhood, home_type, building_class,
+def build_features(borough, neighborhood, zip_code, home_type, building_class,
                    gross_sqft, land_sqft, year_built, sale_quarter) -> pd.DataFrame:
     """One-row model input, engineered exactly as in Section 4b of the notebook."""
     gross = np.nan if gross_sqft is None else float(gross_sqft)
@@ -79,6 +80,7 @@ def build_features(borough, neighborhood, home_type, building_class,
         "building_class_at_time_of_sale": building_class,
         "sale_quarter": int(sale_quarter),
         "neighborhood": neighborhood,
+        "zip_code": str(zip_code),
     }])
 
 

@@ -135,4 +135,4 @@ fig.update_layout(xaxis_title="Increase in test RMSE (log price) when the featur
                   bargap=0.45)
 st.plotly_chart(fig, **PLOT)
 st.caption("Each feature is shuffled 10 times; the bar is the average increase in error and the line its spread. "
-           "Location (neighbourhood) dominates, followed by building size.")
+           "Location (neighbourhood and ZIP code) dominates, together with building size. The two location columns overlap, so each looks less important alone than location really is.")
