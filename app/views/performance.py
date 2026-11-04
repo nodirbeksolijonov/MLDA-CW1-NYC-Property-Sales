@@ -99,13 +99,18 @@ def summary(g):
 
 
 st.subheader("3. Where the model is accurate and where it struggles")
+band_by = st.radio("Form the price bands from the", ["actual price", "predicted price"], horizontal=True,
+                   help="Grouping by actual price makes cheap sales look over-priced and expensive ones under-priced "
+                        "even for a well-calibrated model (regression to the mean). Grouping by predicted price "
+                        "is the fair calibration check.")
 by_borough = test_pred.groupby("borough_name").apply(summary, include_groups=False).reindex(BOROUGHS)
-bands = pd.qcut(test_pred["actual"], 5)
+bands = pd.qcut(test_pred["actual" if band_by == "actual price" else "predicted"], 5)
 by_band = test_pred.groupby(bands, observed=True).apply(summary, include_groups=False)
 by_band.index = [f"{money(b.left)} – {money(b.right)}" for b in by_band.index]
+lim = max(by_borough["Bias"].abs().max(), by_band["Bias"].abs().max()) * 1.3
 
 left, right = st.columns(2)
-for col, data, title in [(left, by_borough, "By borough"), (right, by_band, "By price band (fifths of actual price)")]:
+for col, data, title in [(left, by_borough, "By borough"), (right, by_band, f"By price band (fifths of {band_by})")]:
     with col:
         d = data.reset_index(names="group")
         fig = px.bar(d, x="group", y="Bias", text=d["Bias"].map("{:+.0%}".format), custom_data=["sales", "Median error"],
@@ -113,16 +118,18 @@ for col, data, title in [(left, by_borough, "By borough"), (right, by_band, "By 
         fig.update_traces(textposition="outside", cliponaxis=False, hovertemplate=(
             "%{x}<br>Bias %{y:+.1%}<br>Median error %{customdata[1]:.1%}<br>%{customdata[0]:,} sales<extra></extra>"))
         fig.add_hline(y=0, line_color=MUTED)
-        lim = d["Bias"].abs().max() * 1.3
         fig.update_layout(xaxis_title=None, yaxis_title="Median of predicted / actual − 1", yaxis_tickformat="+.0%",
                           yaxis_range=[-lim, lim], bargap=0.45)
         st.plotly_chart(fig, **PLOT)
 st.markdown("""
 - Bars **above zero** mean the model tends to **over-price** that group, bars below zero mean it under-prices.
-- The **cheapest fifth** of sales is over-priced by about 20%: many are probably below-market sales (family,
-  distress, poor condition) that the public record cannot identify.
-- **Expensive homes and Manhattan are under-priced**: they are rare in the data, so the model pulls them
-  towards the average.
+- **Grouped by actual price**, the cheapest fifth looks over-priced by about 19% and the most expensive fifth
+  under-priced. Most of this is **regression to the mean**: the cheapest actual sales include homes that sold far
+  below what similar homes fetch (probably family, distress or poor-condition sales the public record cannot identify).
+- **Grouped by predicted price**, the bias is small in every band (−1% to −4%): when the model predicts a price,
+  such homes really sell for close to it. The slight under-pricing comes from the squared-error loss, which
+  predicts the mean and is pulled down a little by those unusually cheap sales.
+- **Manhattan is under-priced**: it has very few 1–3 family sales, so the model pulls it towards the average.
 """)
 
 # ---- Feature importance ----
