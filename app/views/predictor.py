@@ -13,35 +13,44 @@ page_header("Price predictor",
             "Estimate the 2025 sale price of a 1–3 family home with the final Gradient Boosting model")
 
 # ---- Inputs ----
+def n_sales(n):
+    return f"{n} sale" if n == 1 else f"{n} sales"
+
+
 c1, c2, c3 = st.columns(3)
 borough = c1.selectbox("Borough", BOROUGHS, index=BOROUGHS.index("Queens"))
 in_borough = homes[homes["borough_name"] == borough]
 nb_counts = in_borough["neighborhood"].value_counts()
 nb_options = sorted(nb_counts.index)
 neighborhood = c2.selectbox("Neighbourhood", nb_options, index=nb_options.index(nb_counts.idxmax()),
-                            format_func=lambda n: f"{n.title()} ({nb_counts[n]} sales)")
-home_type = c3.selectbox("Home type", HOME_TYPES)
+                            format_func=lambda n: f"{n.title()} ({n_sales(nb_counts[n])})")
+zip_counts = in_borough.loc[in_borough["neighborhood"] == neighborhood, "zip_code"].value_counts()
+zip_code = c3.selectbox("ZIP code", zip_counts.index,
+                        format_func=lambda z: f"{z} ({n_sales(zip_counts[z])})",
+                        help="ZIP codes with 2025 sales in this neighbourhood, most sales first")
+
+c1, c2, c3 = st.columns(3)
+home_type = c1.selectbox("Home type", HOME_TYPES)
 
 class_counts = homes.loc[homes["home_type"] == home_type, "building_class_at_time_of_sale"].value_counts()
-c1, c2, c3 = st.columns(3)
-building_class = c1.selectbox("Building class", class_counts.index,
+building_class = c2.selectbox("Building class", class_counts.index,
                               format_func=lambda c: f"{c}: {BUILDING_CLASSES.get(c, c)}")
 
 similar = homes[(homes["neighborhood"] == neighborhood) & (homes["home_type"] == home_type)]
 defaults = similar if len(similar) >= 3 else homes[homes["home_type"] == home_type]
-size_known = not c2.checkbox("Floor and land area unknown", value=False,
-                             help="The model then fills in typical sizes, as it does for missing values in the data")
 year_built = c3.number_input("Year built", 1800, 2025, int(defaults["year_built"].median()), step=1)
 
-c1, c2, c3 = st.columns(3)
-gross = c1.number_input("Gross floor area (sq ft)", 300, 20_000, int(defaults["gross_square_feet"].median()),
+c1, c2, c3, c4 = st.columns(4)
+size_known = not c1.checkbox("Floor and land area unknown", value=False,
+                             help="The model then fills in typical sizes, as it does for missing values in the data")
+gross = c2.number_input("Gross floor area (sq ft)", 300, 20_000, int(defaults["gross_square_feet"].median()),
                         step=50, disabled=not size_known)
-land = c2.number_input("Land area (sq ft)", 200, 50_000, int(defaults["land_square_feet"].median()),
+land = c3.number_input("Land area (sq ft)", 200, 50_000, int(defaults["land_square_feet"].median()),
                        step=50, disabled=not size_known)
-quarter = c3.selectbox("Quarter of sale (2025)", [1, 2, 3, 4], index=3, format_func=lambda q: f"Q{q}")
+quarter = c4.selectbox("Quarter of sale (2025)", [1, 2, 3, 4], index=3, format_func=lambda q: f"Q{q}")
 
 # ---- Prediction ----
-X = build_features(borough, neighborhood, home_type, building_class,
+X = build_features(borough, neighborhood, zip_code, home_type, building_class,
                    gross if size_known else None, land if size_known else None, year_built, quarter)
 estimate = float(np.exp(model.predict(X)[0]))
 
@@ -60,7 +69,7 @@ st.caption("The ranges come from how far the model's predictions were from the r
            "sales it had never seen: half of those sales fell inside the 50% range, 80% inside the wide range.")
 
 if borough == "Manhattan":
-    st.warning("Manhattan has very few 1–3 family sales (the model's median error there is about 24%), "
+    st.warning("Manhattan has very few 1–3 family sales (the model's median error there is about 20%), "
                "so treat this estimate with extra caution.")
 if nb_counts[neighborhood] < 5:
     st.warning(f"Only {nb_counts[neighborhood]} sale(s) in {neighborhood.title()} in 2025, so the model knows "

@@ -41,6 +41,7 @@ st.markdown("""
 st.subheader("Features used by the model")
 st.dataframe(pd.DataFrame([
     ("Neighbourhood", "Target-encoded (cross-fitted) average log price of the neighbourhood"),
+    ("ZIP code", "Target-encoded in the same way; refines the location inside a neighbourhood"),
     ("Borough", "One-hot encoded"),
     ("Building class", "One-hot encoded (rare classes grouped)"),
     ("Home type", "Ordinal: 1-family < 2-family < 3-family"),
@@ -58,8 +59,8 @@ scikit-learn pipeline, so no information from the validation or test sets leaks 
 
 st.subheader("Limitations")
 st.markdown(f"""
-- The public record has **no information on condition, renovation, views or exact position** within a
-  neighbourhood, which is why a typical error of about 14% remains.
+- The public record has **no information on condition, renovation, views or exact position** below
+  ZIP-code level, which is why a typical error of about 14% remains.
 - **Manhattan** has very few 1–3 family sales ({(homes['borough_name'] == 'Manhattan').sum()} after cleaning),
   so predictions there are much less reliable.
 - The model reflects **2025 prices** and would need re-training on newer sales as the market changes.

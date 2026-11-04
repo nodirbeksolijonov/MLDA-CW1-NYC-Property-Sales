@@ -61,9 +61,9 @@ pip install -r requirements-lock.txt
 `requirements.txt` lists the direct dependencies; `requirements-lock.txt` pins every package, including
 sub-dependencies, to the versions the results were produced with. Running the notebook in a fresh environment
 built from the lock file reproduces all reported results exactly on macOS. Inside the Linux Docker container the
-final Gradient Boosting model and all of its results are identical; the Random Forest and KNN reference scores
-differ only in the 4th decimal (normal floating-point differences between operating systems), which does not change
-any ranking or conclusion.
+final Gradient Boosting model, its hyperparameters and all of its results are identical, and so are the Ridge and
+KNN scores (to 6 decimals). Only the Random Forest reference scores differ, in the 4th decimal (normal
+floating-point differences between operating systems), which does not change any ranking or conclusion.
 
 ### Alternative: Docker
 
