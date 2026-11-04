@@ -1,0 +1,10 @@
+.git
+.venv
+venv
+lectures
+**/__pycache__
+**/.ipynb_checkpoints
+.DS_Store
+*.pdf
+*.docx
+.streamlit/secrets.toml
