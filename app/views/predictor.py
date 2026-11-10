@@ -38,14 +38,28 @@ building_class = c2.selectbox("Building class", class_counts.index,
 
 similar = homes[(homes["neighborhood"] == neighborhood) & (homes["home_type"] == home_type)]
 defaults = similar if len(similar) >= 3 else homes[homes["home_type"] == home_type]
-year_built = c3.number_input("Year built", 1800, 2025, int(defaults["year_built"].median()), step=1)
+all_of_type = homes[homes["home_type"] == home_type]
+
+
+def default_value(col, lo, hi):
+    """Median of the similar homes, falling back to all homes of this type when the
+    neighbourhood has no recorded value (e.g. Breezy Point co-ops have no sizes),
+    and kept inside the input's allowed range so the widget never errors."""
+    source = defaults if defaults[col].notna().any() else all_of_type
+    value = source[col].median()
+    return int(min(max(value, lo), hi))
+
+
+year_built = c3.number_input("Year built", 1800, 2025, default_value("year_built", 1800, 2025), step=1)
 
 c1, c2, c3, c4 = st.columns(4)
-size_known = not c1.checkbox("Floor and land area unknown", value=False,
+# If none of the similar homes have a recorded size, start with "unknown" ticked
+sizes_missing_here = defaults["gross_square_feet"].isna().all()
+size_known = not c1.checkbox("Floor and land area unknown", value=bool(sizes_missing_here),
                              help="The model then fills in typical sizes, as it does for missing values in the data")
-gross = c2.number_input("Gross floor area (sq ft)", 300, 20_000, int(defaults["gross_square_feet"].median()),
+gross = c2.number_input("Gross floor area (sq ft)", 300, 20_000, default_value("gross_square_feet", 300, 20_000),
                         step=50, disabled=not size_known)
-land = c3.number_input("Land area (sq ft)", 200, 50_000, int(defaults["land_square_feet"].median()),
+land = c3.number_input("Land area (sq ft)", 200, 50_000, default_value("land_square_feet", 200, 50_000),
                        step=50, disabled=not size_known)
 quarter = c4.selectbox("Quarter of sale (2025)", [1, 2, 3, 4], index=3, format_func=lambda q: f"Q{q}")
 
