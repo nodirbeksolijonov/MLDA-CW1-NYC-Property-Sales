@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -150,6 +151,59 @@ st.caption(f"Price follows a U-shape: pre-war and new homes sell for more, homes
            f"two-thirds of those built 1975–2000 are in suburban Staten Island. Most recorded build years are rounded estimates "
            f"(about 78% end in 0 or 5, and many pre-1900 homes are recorded as 1899), so decades are used. "
            f"Prices are shown only for decades with at least {MIN_DECADE_SALES} sales.")
+
+# ---- Row 5: correlation heatmap of the model's numeric features ----
+CORR_FEATURES = {   # column in the cleaned data -> label; the same features the model uses (notebook 4b)
+    "log_price": "Log price", "log_floor": "Log floor area", "log_land": "Log land area",
+    "floor_area_ratio": "Floor area ratio", "building_age": "Building age", "home_type_n": "Home type (1–3)",
+    "has_commercial": "Has a shop/office", "sale_quarter": "Sale quarter",
+}
+
+
+@st.cache_data
+def correlation_matrix(features: pd.DataFrame, method: str) -> pd.DataFrame:
+    """Cached on the filtered data and the method, so switching the toggle stays fast."""
+    return features.corr(method=method.lower())
+
+
+features = pd.DataFrame({
+    "log_price": np.log(df["sale_price"]),
+    "log_floor": np.log(df["gross_square_feet"]),
+    "log_land": np.log(df["land_square_feet"]),
+    "floor_area_ratio": df["floor_area_ratio"],
+    "building_age": df["building_age"],
+    "home_type_n": df["home_type"].str[0].astype(int),
+    "has_commercial": df["has_commercial"],
+    "sale_quarter": df["sale_quarter"],
+}).rename(columns=CORR_FEATURES)
+# A feature with a single value under the current filters has no correlation (e.g. no shops among
+# Manhattan 3-family homes), so it is left out and named in a note instead of showing an empty row
+constant = [c for c in features.columns if features[c].nunique() <= 1]
+features = features.drop(columns=constant)
+
+st.subheader("How the model's numeric features relate to each other")
+method = st.radio("Correlation", ["Spearman", "Pearson"], horizontal=True,
+                  help="Spearman uses ranks, so it captures any steadily rising or falling relationship and is "
+                       "less affected by outliers; Pearson measures straight-line relationships only")
+corr = correlation_matrix(features, method)
+# Show the lower triangle only: the upper half repeats it and the diagonal is always 1
+corr_lower = corr.where(np.tril(np.ones(corr.shape, dtype=bool), k=-1)).iloc[1:, :-1]
+fig = go.Figure(go.Heatmap(
+    z=corr_lower.values, x=corr_lower.columns, y=corr_lower.index, zmin=-1, zmax=1, zmid=0,
+    colorscale=[[0, "#2a78d6"], [0.5, "#f1f0ed"], [1, "#d6542a"]],   # blue = negative, grey = 0, red = positive
+    text=corr_lower.round(2).values, texttemplate="%{text:.2f}", textfont=dict(color="#1f1f1d", size=13),
+    xgap=2, ygap=2, hoverongaps=False, colorbar=dict(title=method, thickness=12),
+    hovertemplate="%{y} vs %{x}<br>" + method + " correlation %{z:.2f}<extra></extra>"))
+fig.update_layout(height=480, title=f"{method} correlation ({len(df):,} sales with the current filters)",
+                  xaxis=dict(tickangle=-35, showgrid=False), yaxis=dict(autorange="reversed", showgrid=False),
+                  plot_bgcolor="rgba(0,0,0,0)")
+st.plotly_chart(fig, **PLOT)
+st.caption("Neighbourhood, ZIP code and borough are not shown because they are categories, not numbers, yet "
+           "location is the strongest driver of price (see the feature importance on the Model performance page). "
+           "Try filtering by borough: the link between size and price differs between boroughs. Homes with no "
+           "recorded size are left out of the pairs that use size."
+           + (f" Not shown because they have only one value with these filters: {', '.join(constant)}."
+              if constant else ""))
 
 with st.expander("Show the filtered data"):
     table = df[["borough_name", "neighborhood_title", "home_type", "building_class_at_time_of_sale",
