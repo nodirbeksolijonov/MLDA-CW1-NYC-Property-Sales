@@ -1,8 +1,10 @@
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
-from utils import (BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, area_unit, load_homes, money, page_header,
+from utils import (BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, load_homes, money, page_header,
                    style_bars, to_display_area)
 
 homes = load_homes()
@@ -88,15 +90,20 @@ with left:
     order = st.radio("Neighbourhoods", ["Most expensive", "Least expensive"], horizontal=True)
     top = nb.nlargest(10, "median") if order == "Most expensive" else nb.nsmallest(10, "median")
     top = top.sort_values("median", ascending=order != "Most expensive")
-    fig = px.bar(top, x="median", y="neighborhood_title", orientation="h", color="borough_name",
-                 color_discrete_map=borough_colors, text=top["median"].map(money), custom_data=["sales"],
-                 title=f"{order} neighbourhoods (at least {min_sales} sales)", labels={"borough_name": "Borough"})
-    fig.update_traces(textposition="outside", cliponaxis=False,
-                      hovertemplate="%{y}<br>Median %{x:$,.0f}<br>%{customdata[0]:,} sales<extra></extra>")
-    fig.update_layout(xaxis_title=None, yaxis_title=None, xaxis_tickformat="$,.2s",
-                      yaxis={"categoryorder": "array", "categoryarray": top["neighborhood_title"].tolist()[::-1]})
-    style_bars(fig, pad=1.25)
-    st.plotly_chart(fig, **PLOT)
+    if top.empty:   # e.g. Staten Island 3-family: no neighbourhood reaches the minimum number of sales
+        st.info(f"No neighbourhood has at least {min_sales} sales with these filters.")
+    else:
+        fig = px.bar(top, x="median", y="neighborhood_title", orientation="h", color="borough_name",
+                     color_discrete_map=borough_colors, text=top["median"].map(money), custom_data=["sales"],
+                     title=f"{order} neighbourhoods (at least {min_sales} sales)",
+                     labels={"borough_name": "Borough"})
+        fig.update_traces(textposition="outside", cliponaxis=False,
+                          hovertemplate="%{y}<br>Median %{x:$,.0f}<br>%{customdata[0]:,} sales<extra></extra>")
+        fig.update_layout(xaxis_title=None, yaxis_title=None, xaxis_tickformat="$,.2s",
+                          yaxis={"categoryorder": "array",
+                                 "categoryarray": top["neighborhood_title"].tolist()[::-1]})
+        style_bars(fig, pad=1.25)
+        st.plotly_chart(fig, **PLOT)
 with right:
     sample = df.dropna(subset=["gross_square_feet"])
     sample = sample.sample(min(len(sample), 3000), random_state=42)
@@ -115,6 +122,34 @@ with right:
     st.plotly_chart(fig, **PLOT)
     st.caption(f"Random sample of {len(sample):,} sales. Bigger homes cost more, but at any size the price "
                "still varies a lot, mostly because of location.")
+
+# ---- Row 4: year built (price and number of homes on separate panels, never a dual axis) ----
+built = df.dropna(subset=["year_built"])
+decade = (built["year_built"] // 10 * 10).clip(lower=1880).astype(int)   # the few pre-1890 homes form one group
+by_decade = built.groupby(decade)["sale_price"].agg(median="median", sales="size")
+by_decade.index = ["before 1890" if d == 1880 else f"{d}s" for d in by_decade.index]
+MIN_DECADE_SALES = 10   # a median of fewer sales is too noisy to plot
+reliable = by_decade[by_decade["sales"] >= MIN_DECADE_SALES]
+
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.68, 0.32], vertical_spacing=0.06)
+fig.add_trace(go.Scatter(x=reliable.index, y=reliable["median"], mode="lines+markers",
+                         line=dict(width=2, color=HIGHLIGHT), marker=dict(size=8, color=HIGHLIGHT),
+                         customdata=reliable["sales"],
+                         hovertemplate="Built %{x}<br>Median %{y:$,.0f}<br>%{customdata:,} sales<extra></extra>"),
+              row=1, col=1)
+fig.add_trace(go.Bar(x=by_decade.index, y=by_decade["sales"], marker_color=MUTED, marker_line_width=0,
+                     hovertemplate="Built %{x}<br>%{y:,} sales<extra></extra>"), row=2, col=1)
+fig.update_layout(title="Sale price by decade built", showlegend=False, height=460, bargap=0.25,
+                  hovermode="x unified")
+fig.update_yaxes(title_text="Median price", tickformat="$,.2s", row=1, col=1)
+fig.update_yaxes(title_text="Sales", row=2, col=1)
+fig.update_xaxes(type="category", categoryorder="array", categoryarray=list(by_decade.index))
+st.plotly_chart(fig, **PLOT)
+st.caption(f"Price follows a U-shape: pre-war and new homes sell for more, homes built around 1975–2000 for the "
+           f"least. Much of this is location: about two-thirds of homes built before 1910 are in Brooklyn, and "
+           f"two-thirds of those built 1975–2000 are in suburban Staten Island. Most recorded build years are rounded estimates "
+           f"(about 78% end in 0 or 5, and many pre-1900 homes are recorded as 1899), so decades are used. "
+           f"Prices are shown only for decades with at least {MIN_DECADE_SALES} sales.")
 
 with st.expander("Show the filtered data"):
     table = df[["borough_name", "neighborhood_title", "home_type", "building_class_at_time_of_sale",
