@@ -44,6 +44,25 @@ FEATURE_LABELS = {
 }
 
 
+SQFT_PER_M2 = 10.7639   # 1 m² = 10.7639 ft²
+
+
+def area_unit() -> str:
+    """The unit chosen in the sidebar ("ft²" or "m²"). The data and the model stay in ft²;
+    only what is displayed or typed in is converted."""
+    return st.session_state.get("area_unit", "ft²")
+
+
+def to_display_area(sqft):
+    """Convert an area in ft² (number or Series) to the chosen display unit."""
+    return sqft / SQFT_PER_M2 if area_unit() == "m²" else sqft
+
+
+def to_sqft(value):
+    """Convert an area typed in the chosen display unit back to ft² for the model."""
+    return value * SQFT_PER_M2 if area_unit() == "m²" else value
+
+
 @st.cache_data
 def load_homes() -> pd.DataFrame:
     df = pd.read_csv(DATA_FILE, index_col="row_id", parse_dates=["sale_date"])

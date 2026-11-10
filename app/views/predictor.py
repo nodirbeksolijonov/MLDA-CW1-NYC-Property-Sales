@@ -2,8 +2,8 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
-from utils import (BOROUGHS, BUILDING_CLASSES, HIGHLIGHT, HOME_TYPES, MUTED, build_features, load_homes,
-                   load_model, load_results, money, money_md, page_header)
+from utils import (BOROUGHS, BUILDING_CLASSES, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, build_features,
+                   load_homes, load_model, load_results, money, money_md, page_header, to_display_area, to_sqft)
 
 homes = load_homes()
 model = load_model()
@@ -41,12 +41,12 @@ defaults = similar if len(similar) >= 3 else homes[homes["home_type"] == home_ty
 all_of_type = homes[homes["home_type"] == home_type]
 
 
-def default_value(col, lo, hi):
+def default_value(col, lo, hi, convert=lambda v: v):
     """Median of the similar homes, falling back to all homes of this type when the
     neighbourhood has no recorded value (e.g. Breezy Point co-ops have no sizes),
     and kept inside the input's allowed range so the widget never errors."""
     source = defaults if defaults[col].notna().any() else all_of_type
-    value = source[col].median()
+    value = convert(source[col].median())
     return int(min(max(value, lo), hi))
 
 
@@ -57,10 +57,18 @@ c1, c2, c3, c4 = st.columns(4)
 sizes_missing_here = defaults["gross_square_feet"].isna().all()
 size_known = not c1.checkbox("Floor and land area unknown", value=bool(sizes_missing_here),
                              help="The model then fills in typical sizes, as it does for missing values in the data")
-gross = c2.number_input("Gross floor area (sq ft)", 300, 20_000, default_value("gross_square_feet", 300, 20_000),
-                        step=50, disabled=not size_known)
-land = c3.number_input("Land area (sq ft)", 200, 50_000, default_value("land_square_feet", 200, 50_000),
-                       step=50, disabled=not size_known)
+# Input limits per unit: the ft² limits cover the cleaned data, the m² limits are the same areas rounded
+unit = area_unit()
+gross_lo, gross_hi, land_lo, land_hi, step = ((300, 20_000, 200, 50_000, 50) if unit == "ft²"
+                                              else (25, 1_900, 20, 4_650, 5))
+gross_in = c2.number_input(f"Gross floor area ({unit})", gross_lo, gross_hi,
+                           default_value("gross_square_feet", gross_lo, gross_hi, to_display_area),
+                           step=step, disabled=not size_known)
+land_in = c3.number_input(f"Land area ({unit})", land_lo, land_hi,
+                          default_value("land_square_feet", land_lo, land_hi, to_display_area),
+                          step=step, disabled=not size_known)
+# The model was trained on square feet, so convert back before predicting
+gross, land = to_sqft(gross_in), to_sqft(land_in)
 quarter = c4.selectbox("Quarter of sale (2025)", [1, 2, 3, 4], index=3, format_func=lambda q: f"Q{q}")
 
 # ---- Prediction ----
@@ -103,10 +111,13 @@ else:
     left, right = st.columns([3, 2])
     with left:
         comps["price_text"] = comps["sale_price"].map("${:,.0f}".format)
+        comps[["gross_square_feet", "land_square_feet"]] = to_display_area(
+            comps[["gross_square_feet", "land_square_feet"]]).round()
         st.dataframe(comps[["building_class_at_time_of_sale", "gross_square_feet", "land_square_feet",
                             "year_built", "sale_date", "price_text"]]
-                     .rename(columns={"building_class_at_time_of_sale": "class", "gross_square_feet": "floor sq ft",
-                                      "land_square_feet": "land sq ft", "year_built": "built",
+                     .rename(columns={"building_class_at_time_of_sale": "class",
+                                      "gross_square_feet": f"floor {unit}",
+                                      "land_square_feet": f"land {unit}", "year_built": "built",
                                       "sale_date": "sold", "price_text": "price"}),
                      hide_index=True, width="stretch",
                      column_config={"sold": st.column_config.DateColumn(format="MMM YYYY"),
@@ -128,5 +139,7 @@ else:
 
 with st.expander("What the model receives"):
     st.dataframe(X, hide_index=True, width="stretch")
+    st.caption("Sizes enter the model as the log of square feet, as in the notebook; areas typed in m² are "
+               "converted to ft² first, so the estimate is the same in either unit.")
     st.caption("Sizes are log-transformed and building age is computed exactly as in the notebook. "
                "The saved pipeline then imputes, scales and encodes these values before the model predicts.")

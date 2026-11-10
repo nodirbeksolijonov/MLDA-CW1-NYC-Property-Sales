@@ -9,6 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 st.set_page_config(page_title="NYC Home Prices 2025", page_icon="🏠", layout="wide")
 
+# Area unit switch, shared by every page through st.session_state["area_unit"]
+st.sidebar.radio("Area unit", ["ft²", "m²"], key="area_unit", horizontal=True,
+                 help="The source data records sizes in square feet; m² values are converted (1 m² = 10.764 ft²)")
+
 pages = st.navigation([
     st.Page("views/home.py", title="Overview", icon="🏠", default=True),
     st.Page("views/dashboard.py", title="Market dashboard", icon="📊"),

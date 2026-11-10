@@ -2,7 +2,8 @@ import numpy as np
 import plotly.express as px
 import streamlit as st
 
-from utils import BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, load_homes, money, page_header, style_bars
+from utils import (BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, area_unit, load_homes, money, page_header,
+                   style_bars, to_display_area)
 
 homes = load_homes()
 page_header("Market dashboard", "1–3 family market sales in New York City, January–December 2025")
@@ -19,12 +20,14 @@ if df.empty:
     st.warning("No sales match these filters.")
     st.stop()
 
-price_per_sqft = df["sale_price"] / df["gross_square_feet"]
+unit = area_unit()
+floor_area = to_display_area(df["gross_square_feet"])
+price_per_area = df["sale_price"] / floor_area
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Sales", f"{len(df):,}")
 k2.metric("Median price", money(df["sale_price"].median()))
-k3.metric("Median price per sq ft", f"${price_per_sqft.median():,.0f}")
-k4.metric("Median building size", f"{df['gross_square_feet'].median():,.0f} sq ft")
+k3.metric(f"Median price per {unit}", f"${price_per_area.median():,.0f}")
+k4.metric("Median building size", f"{floor_area.median():,.0f} {unit}")
 
 PLOT = dict(theme="streamlit", width="stretch")
 borough_colors = {b: BOROUGH_COLORS[b] for b in boroughs}
@@ -97,14 +100,16 @@ with left:
 with right:
     sample = df.dropna(subset=["gross_square_feet"])
     sample = sample.sample(min(len(sample), 3000), random_state=42)
-    fig = px.scatter(sample, x="gross_square_feet", y="sale_price", log_x=True, log_y=True, opacity=0.4,
+    sample = sample.assign(floor_area=to_display_area(sample["gross_square_feet"]))
+    fig = px.scatter(sample, x="floor_area", y="sale_price", log_x=True, log_y=True, opacity=0.4,
                      color_discrete_sequence=[HIGHLIGHT], custom_data=["neighborhood_title", "borough_name"],
                      title="Building size vs sale price (log scales)")
     fig.update_traces(marker_size=8, marker_line_width=0, hovertemplate=(
-        "%{customdata[0]}, %{customdata[1]}<br>%{x:,.0f} sq ft<br>%{y:$,.0f}<extra></extra>"))
+        "%{customdata[0]}, %{customdata[1]}<br>%{x:,.0f} "
+        f"{unit}<br>%{{y:$,.0f}}<extra></extra>"))
     price_ticks = [2e5, 5e5, 1e6, 2e6, 5e6, 1e7, 2e7]
-    size_ticks = [500, 1000, 2000, 5000, 10000]
-    fig.update_layout(xaxis=dict(title="Gross floor area (sq ft)", tickvals=size_ticks,
+    size_ticks = [500, 1000, 2000, 5000, 10000] if unit == "ft²" else [50, 100, 200, 500, 1000]
+    fig.update_layout(xaxis=dict(title=f"Gross floor area ({unit})", tickvals=size_ticks,
                                  ticktext=[f"{t:,}" for t in size_ticks]),
                       yaxis=dict(title="Sale price", tickvals=price_ticks, ticktext=[money(t) for t in price_ticks]))
     st.plotly_chart(fig, **PLOT)
@@ -112,6 +117,10 @@ with right:
                "still varies a lot, mostly because of location.")
 
 with st.expander("Show the filtered data"):
-    st.dataframe(df[["borough_name", "neighborhood_title", "home_type", "building_class_at_time_of_sale",
-                     "gross_square_feet", "land_square_feet", "year_built", "sale_price", "sale_date"]],
+    table = df[["borough_name", "neighborhood_title", "home_type", "building_class_at_time_of_sale",
+                "gross_square_feet", "land_square_feet", "year_built", "sale_price", "sale_date"]].copy()
+    table[["gross_square_feet", "land_square_feet"]] = to_display_area(
+        table[["gross_square_feet", "land_square_feet"]]).round()
+    st.dataframe(table.rename(columns={"gross_square_feet": f"floor area ({unit})",
+                                       "land_square_feet": f"land area ({unit})"}),
                  width="stretch", hide_index=True)
