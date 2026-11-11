@@ -3,6 +3,7 @@
 The feature engineering in `build_features` must stay identical to Section 4b
 of the notebook, because the saved pipeline expects exactly those columns.
 """
+import json
 from pathlib import Path
 
 import joblib
@@ -70,6 +71,18 @@ def load_homes() -> pd.DataFrame:
     df["neighborhood_title"] = df["neighborhood"].str.title()
     df["zip_code"] = df["zip_code"].astype(str)   # a label, as in the notebook
     return df
+
+
+ZIP_GEO_FILE = ROOT / "data" / "nyc_zip_boundaries.geojson"
+
+
+@st.cache_data
+def load_zip_areas():
+    """ZIP boundary areas (NYC Open Data MODZCTA, simplified) and a ZIP code -> area lookup.
+    A few areas cover more than one ZIP code, so sales are grouped by area."""
+    geo = json.loads(ZIP_GEO_FILE.read_text())
+    zip_to_area = {z: f["id"] for f in geo["features"] for z in f["properties"]["covers"]}
+    return geo, zip_to_area
 
 
 @st.cache_resource

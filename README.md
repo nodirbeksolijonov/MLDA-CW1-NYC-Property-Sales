@@ -17,12 +17,17 @@ and identifies which factors drive price the most.
 - Licence / terms: NYC Open Data Terms of Use (free public use with attribution).
 - The data was downloaded directly from the NYC Department of Finance website (not from Kaggle).
 
+**ZIP code boundaries** (used only for the maps): NYC Open Data, *Modified Zip Code Tabulation Areas (MODZCTA)*, dataset `pri4-ifjk`,
+https://data.cityofnewyork.us/Health/Modified-Zip-Code-Tabulation-Areas-MODZCTA-/pri4-ifjk.
+Shapes simplified to about 50 m and saved as `data/nyc_zip_boundaries.geojson`; each area lists the ZIP codes it covers.
+
 ## Project structure
 
 ```
 ML_CW/
 ├── data/
 │   ├── 2025_*.xlsx                     # raw borough sales files
+│   ├── nyc_zip_boundaries.geojson      # ZIP code boundary areas for the maps (NYC Open Data)
 │   └── processed/homes_2025_clean.csv  # cleaned dataset exported by the notebook (used by the app)
 ├── notebooks/
 │   └── MLDA_CW1_NYC_Property_Sales.ipynb   # main analysis (EDA → preparation → models → evaluation)
@@ -99,7 +104,7 @@ The app opens at http://localhost:8501 and has five pages:
 | Page | What it shows |
 |---|---|
 | **Overview** | Project summary and headline results |
-| **Market dashboard** | Filters by borough, home type and quarter; prices by borough, price distribution, monthly trends, most/least expensive neighbourhoods, size vs price |
+| **Market dashboard** | Filters by borough, home type and quarter; prices by borough, price distribution, monthly trends, most/least expensive neighbourhoods, size vs price, ZIP code price map (actual vs learned by the model), price by decade built, correlation heatmap; ft²/m² switch in the sidebar |
 | **Price predictor** | Estimated 2025 price for a home you describe, with a realistic range and comparable sales |
 | **Model performance** | Comparison of the four tuned models, test-set accuracy, errors by borough and price band, feature importance |
 | **Data & method** | Data source, cleaning steps, features and limitations |

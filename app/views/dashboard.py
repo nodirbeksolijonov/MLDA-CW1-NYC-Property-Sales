@@ -5,8 +5,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
-from utils import (BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, load_homes, money, page_header,
-                   style_bars, to_display_area)
+from utils import (BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, load_homes, load_model,
+                   load_zip_areas, money, page_header, style_bars, to_display_area)
 
 homes = load_homes()
 page_header("Market dashboard", "1–3 family market sales in New York City, January–December 2025")
@@ -123,6 +123,51 @@ with right:
     st.plotly_chart(fig, **PLOT)
     st.caption(f"Random sample of {len(sample):,} sales. Bigger homes cost more, but at any size the price "
                "still varies a lot, mostly because of location.")
+
+# ---- ZIP code map: actual prices vs what the model learned for each ZIP code ----
+st.subheader("Prices by ZIP code")
+zip_geo, zip_to_area = load_zip_areas()
+layer = st.radio("Colour the map by", ["Actual median sale price", "Price learned by the model"], horizontal=True,
+                 help="The model does not use ZIP code as a number or a map position. Its target encoder "
+                      "replaces each ZIP code with the typical price of its sales, learned from the training "
+                      "data. If the two maps look alike, the encoding has found the right areas.")
+area = df["zip_code"].map(zip_to_area)
+by_area = df.groupby(area).agg(
+    sales=("sale_price", "size"), actual=("sale_price", "median"),
+    zips=("zip_code", lambda z: ", ".join(sorted(z.unique()))),
+    neighbourhoods=("neighborhood_title", lambda n: ", ".join(n.value_counts().index[:3])))
+# The final model's encoder: typical log price per ZIP code (fitted on the training + validation sets)
+zip_encoder = load_model().named_steps["prep"].named_transformers_["te"].named_steps["encode"]
+zip_learned = pd.Series(np.exp(zip_encoder.encodings_[1]), index=zip_encoder.categories_[1].astype(str))
+by_area["learned"] = df["zip_code"].map(zip_learned).groupby(area).median()
+
+MIN_AREA_SALES = 5   # a median of fewer sales would let one sale colour a whole area
+shown = by_area[by_area["sales"] >= MIN_AREA_SALES]
+value = shown["actual" if layer.startswith("Actual") else "learned"]
+price_ticks = [5e5, 1e6, 2e6, 5e6, 1e7]
+fig = go.Figure()
+fig.add_trace(go.Choroplethmap(   # every area in light grey underneath, so areas with few sales still show
+    geojson=zip_geo, locations=[f["id"] for f in zip_geo["features"]], z=[0] * len(zip_geo["features"]),
+    colorscale=[[0, "#e4e3df"], [1, "#e4e3df"]], showscale=False, marker_line_color="white",
+    marker_line_width=0.5, hoverinfo="skip"))
+fig.add_trace(go.Choroplethmap(
+    geojson=zip_geo, locations=shown.index, z=np.log10(value),
+    zmin=np.log10(5e5), zmax=np.log10(1.2e7),   # fixed range: equal colours mean equal prices on both layers
+    colorscale=[[0, "#dceaf9"], [0.5, "#5b9be0"], [1, "#0d3a73"]], marker_line_color="white",
+    marker_line_width=0.5, marker_opacity=0.85,
+    colorbar=dict(title="Price", tickvals=np.log10(price_ticks), ticktext=[money(t) for t in price_ticks],
+                  thickness=12),
+    customdata=shown.assign(value=value)[["zips", "neighbourhoods", "value", "sales"]].to_numpy(dtype=object),
+    hovertemplate="ZIP %{customdata[0]}<br>%{customdata[1]}<br>"
+                  + ("Median price" if layer.startswith("Actual") else "Learned price")
+                  + " $%{customdata[2]:,.0f}<br>%{customdata[3]:,} sales<extra></extra>"))
+fig.update_layout(map=dict(style="carto-positron", center=dict(lat=40.70, lon=-73.94), zoom=9.2),
+                  height=620, margin=dict(l=0, r=0, t=10, b=0))
+st.plotly_chart(fig, **PLOT)
+st.caption(f"ZIP areas with fewer than {MIN_AREA_SALES} sales under the current filters are grey; most of "
+           "Manhattan is grey because it has very few 1–3 family houses. In the notebook (4d), the price the "
+           "encoder learned matched the median price of unseen validation sales closely (correlation 0.96). "
+           "Boundaries: NYC Open Data, Modified ZIP Code Tabulation Areas.")
 
 # ---- Row 4: year built (price and number of homes on separate panels, never a dual axis) ----
 built = df.dropna(subset=["year_built"])
