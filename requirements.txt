@@ -6,6 +6,8 @@ seaborn==0.13.2
 openpyxl==3.1.5
 scipy==1.18.1
 scikit-learn==1.9.1
+xgboost==3.4.1
+lightgbm==4.7.0
 jupyter==1.1.1
 ipykernel==7.3.0
 streamlit==1.55.0

@@ -63,6 +63,10 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements-lock.txt
 ```
 
+XGBoost and LightGBM (notebook Section 5.7) need the OpenMP runtime. It is included on Windows and in the
+Docker image; on macOS install it once with `brew install libomp`, and on Debian/Ubuntu with
+`sudo apt-get install libgomp1`. The Streamlit app does not use these two libraries.
+
 `requirements.txt` lists the direct dependencies; `requirements-lock.txt` pins every package, including
 sub-dependencies, to the versions the results were produced with. Running the notebook in a fresh environment
 built from the lock file reproduces all reported results exactly on macOS. Inside the Linux Docker container the
