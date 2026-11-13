@@ -26,8 +26,9 @@ The remaining cleaning steps:
 """)
 log["removed"] = (-log["rows"].diff()).fillna(0).astype(int)
 st.dataframe(log, hide_index=True, width="stretch",
-             column_config={"rows": st.column_config.NumberColumn("rows remaining", format="%d"),
-                            "removed": st.column_config.NumberColumn(format="%d")})
+             column_config={"step": "Cleaning step",
+                            "rows": st.column_config.NumberColumn("Rows remaining", format="localized"),
+                            "removed": st.column_config.NumberColumn("Removed", format="localized")})
 st.markdown("""
 - **Removed sales whose building class changed after the sale** (demolished, converted or rebuilt, so the
   recorded features no longer describe what was sold).
@@ -50,7 +51,7 @@ st.dataframe(pd.DataFrame([
     ("Building age", "2025 − year built, scaled"),
     ("Has a shop/office", "Yes/no, from the commercial units"),
     ("Sale quarter", "One-hot encoded"),
-], columns=["feature", "preparation"]), hide_index=True, width="stretch")
+], columns=["Feature", "How it is prepared"]), hide_index=True, width="stretch")
 st.markdown("""
 The target is the **log of the sale price**, because prices are strongly right-skewed. Predictions are converted
 back to dollars for all reported errors. All preparation steps are fitted on the training data only, inside one

@@ -1,6 +1,25 @@
 [theme]
 base = "light"
 primaryColor = "#2a78d6"
+# Charts, tables and inputs are white; the grey page background is set in app/assets/style.css
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#16202e"
+borderColor = "#dfe3ea"
+showWidgetBorder = true
+baseRadius = "0.6rem"
+# Inter is loaded from Google Fonts; without internet the app falls back to the system sans-serif
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+
+[theme.sidebar]
+backgroundColor = "#0f1e33"
+secondaryBackgroundColor = "#1a2c47"
+textColor = "#e8edf5"
+borderColor = "#2a3d5c"
+primaryColor = "#6aa9f0"
+
+[client]
+toolbarMode = "minimal"
 
 [server]
 headless = true

@@ -127,7 +127,7 @@ def money_md(x: float) -> str:
     return money(x).replace("$", "\\$")
 
 
-def style_bars(fig, horizontal=True, pad=1.18):
+def style_bars(fig, horizontal=True, pad=1.3):
     """Thinner bars, room for the value labels outside the bars."""
     fig.update_layout(bargap=0.45)
     values = [v for t in fig.data for v in (t.x if horizontal else t.y)]
@@ -136,6 +136,28 @@ def style_bars(fig, horizontal=True, pad=1.18):
     return fig
 
 
-def page_header(title: str, caption: str):
+ASSETS = Path(__file__).resolve().parent / "assets"
+
+
+def apply_style():
+    """Load the shared stylesheet (app/assets/style.css). Called once per run from streamlit_app.py."""
+    st.html(f"<style>{(ASSETS / 'style.css').read_text()}</style>")
+    st.session_state["_chart_count"] = 0
+
+
+def page_header(title: str, caption: str, eyebrow: str = "NYC home prices 2025"):
+    st.html(f'<div class="eyebrow">{eyebrow}</div>')
     st.title(title)
-    st.caption(caption)
+    st.html(f'<p class="page-lead">{caption}</p>')
+
+
+def card(key: str, **kwargs):
+    """A white bordered card; the key gives it the st-key-card_... class styled in style.css."""
+    return st.container(border=True, key=f"card_{key}", **kwargs)
+
+
+def chart(fig):
+    """Show a Plotly figure on a white card, in the app theme and without the Plotly toolbar."""
+    st.session_state["_chart_count"] += 1
+    with st.container(border=True, key=f"chart_{st.session_state['_chart_count']}"):
+        st.plotly_chart(fig, theme="streamlit", width="stretch", config={"displayModeBar": False})

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="40" viewBox="0 0 250 40">
+  <rect width="40" height="40" rx="9" fill="#2a78d6"/>
+  <path d="M9 20.5 20 11l11 9.5M12.5 18.5V29h15V18.5M18 29v-6h4v6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="52" y="18" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#ffffff">NYC Home Prices</text>
+  <text x="52" y="33" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="500" fill="#93a5bf">2025 sales · price model</text>
+</svg>

@@ -37,6 +37,7 @@ ML_CW/
 ├── app/
 │   ├── streamlit_app.py                # app entry point (multi-page navigation)
 │   ├── utils.py                        # shared loading, feature engineering and styling
+│   ├── assets/                         # stylesheet, logo and icon
 │   └── views/                          # overview, dashboard, predictor, model performance, data & method
 ├── .streamlit/config.toml              # app theme
 ├── requirements.txt                    # pinned direct dependencies
@@ -108,9 +109,9 @@ The app opens at http://localhost:8501 and has five pages:
 | Page | What it shows |
 |---|---|
 | **Overview** | Project summary and headline results |
-| **Market dashboard** | Filters by borough, home type and quarter; prices by borough, price distribution, monthly trends, most/least expensive neighbourhoods, size vs price, ZIP code price map (actual vs learned by the model), price by decade built, correlation heatmap; ft²/m² switch in the sidebar |
+| **Market dashboard** | Filters by borough, home type and quarter, then five tabs: prices (by borough, distribution, most/least expensive neighbourhoods, size vs price), trends (by month and by decade built), ZIP code price map (actual vs learned by the model), feature correlations, and the filtered data; ft²/m² switch in the sidebar |
 | **Price predictor** | Estimated 2025 price for a home you describe, with a realistic range and comparable sales |
-| **Model performance** | Comparison of the four tuned models, test-set accuracy, errors by borough and price band, feature importance |
+| **Model performance** | Four tabs: comparison of the four tuned models, predicted vs actual on the test set, errors by borough and price band, feature importance |
 | **Data & method** | Data source, cleaning steps, features and limitations |
 
 The app reads the files saved by the notebook (`data/processed/`, `models/`). They are included in the repository, so the app works without re-running the notebook. Re-running the notebook regenerates them.

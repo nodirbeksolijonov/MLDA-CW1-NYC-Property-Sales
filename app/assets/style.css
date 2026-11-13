@@ -1,0 +1,83 @@
+/* Shared look of the app. Colours match .streamlit/config.toml. */
+
+/* Grey page, white cards */
+[data-testid="stApp"] { background: #f5f6f8; }
+[data-testid="stHeader"] { background: transparent; }
+
+/* Page width and top spacing */
+[data-testid="stMainBlockContainer"] { max-width: 1280px; padding-top: 2.6rem; padding-bottom: 4rem; }
+
+/* Headings */
+h1 { font-weight: 700 !important; letter-spacing: -0.02em; padding: 0.2rem 0 0.2rem !important; }
+h2, h3 { font-weight: 650 !important; letter-spacing: -0.01em; }
+h3 { margin-top: 0.6rem; }
+
+/* Page header */
+.eyebrow { font-size: 0.74rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+           color: #2a78d6; margin-bottom: 0.1rem; }
+.page-lead { color: #5b6677; font-size: 1.02rem; margin: -0.3rem 0 0.6rem 0; }
+
+/* KPI cards */
+[data-testid="stMetric"] { background: #ffffff; border: 1px solid #dfe3ea; border-radius: 0.75rem;
+                           padding: 0.95rem 1.1rem 0.85rem; box-shadow: 0 1px 2px rgba(16, 30, 51, 0.04); }
+[data-testid="stMetricLabel"] p { font-size: 0.8rem; font-weight: 500; color: #5b6677; }
+[data-testid="stMetricValue"] { font-size: 1.7rem; font-weight: 650; letter-spacing: -0.02em; color: #16202e; }
+
+/* Cards made with st.container(border=True, key="card_...") */
+[class*="st-key-card_"], [class*="st-key-chart_"] { background: #ffffff; box-shadow: 0 1px 2px rgba(16, 30, 51, 0.04); }
+[class*="st-key-card_"] h4 { font-size: 1.02rem; font-weight: 650; padding: 0.1rem 0 0.2rem; }
+.card-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.2rem; height: 2.2rem;
+             border-radius: 0.6rem; background: #e9f1fc; color: #2a78d6; font-weight: 700; font-size: 0.95rem; }
+.card-text { color: #5b6677; font-size: 0.92rem; line-height: 1.5; margin: 0; }
+/* Overview page link cards: icon in a tinted square, "Open" link pinned to the bottom of every card */
+[class*="st-key-card_nav_"] .stMarkdownColoredText span[role="img"] { font-size: 1.35rem; width: 2.2rem; height: 2.2rem;
+    display: inline-flex; align-items: center; justify-content: center; border-radius: 0.6rem; background: #e9f1fc; }
+[class*="st-key-card_nav_"] > div:last-child { margin-top: auto; }
+.step-text { color: #5b6677; font-size: 0.92rem; line-height: 1.5; min-height: 7rem; margin: 0; }
+
+/* Captions */
+[data-testid="stCaptionContainer"] { color: #6b7686; }
+
+/* Sidebar */
+[data-testid="stSidebar"] [data-testid="stSidebarNavSeparator"] { display: none; }
+.sidebar-note { font-size: 0.78rem; line-height: 1.5; color: #93a5bf; border-top: 1px solid #2a3d5c;
+                padding-top: 0.9rem; margin-top: 0.6rem; }
+.sidebar-note b { color: #e8edf5; font-weight: 600; }
+
+/* Price predictor result card */
+.estimate { background: linear-gradient(160deg, #0f1e33 0%, #17345c 100%); color: #ffffff; border-radius: 0.9rem;
+            padding: 1.5rem 1.6rem 1.4rem; }
+.estimate .label { font-size: 0.74rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+                   color: #9db6d6; }
+.estimate .value { font-size: 3rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; margin: 0.2rem 0 0.1rem; }
+.estimate .sub { font-size: 0.86rem; color: #b9c8dc; margin-bottom: 1.3rem; }
+.estimate .track { position: relative; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.16);
+                   margin: 0.4rem 0 0.5rem; }
+.estimate .band { position: absolute; top: 0; height: 10px; border-radius: 5px; background: #6aa9f0; }
+.estimate .marker { position: absolute; top: -5px; width: 4px; height: 20px; margin-left: -2px; border-radius: 2px;
+                    background: #ffffff; }
+.estimate .ends { display: flex; justify-content: space-between; font-size: 0.78rem; color: #b9c8dc; }
+.estimate .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.9rem;
+                 padding: 0.6rem 0; border-top: 1px solid rgba(255, 255, 255, 0.14); }
+.estimate .row:first-of-type { margin-top: 1rem; }
+.estimate .row span { color: #b9c8dc; }
+.estimate .row b { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Tabs (Market dashboard, Model performance) */
+[data-testid="stTabs"] [role="tablist"] { gap: 1.6rem; border-bottom: 1px solid #dfe3ea; }
+[data-testid="stTabs"] button[role="tab"] { padding: 0.55rem 0.1rem; }
+[data-testid="stTabs"] button[role="tab"] p { font-size: 0.95rem; font-weight: 500; }
+[data-testid="stTabs"] [role="tabpanel"] { padding-top: 1.1rem; }
+
+/* Phones: room for the header bar, smaller page title, headline numbers two per row */
+@media (max-width: 640px) {
+  [data-testid="stMainBlockContainer"] { padding-top: 4rem; padding-left: 1rem; padding-right: 1rem; }
+  h1 { font-size: 2rem !important; }
+  h3 { font-size: 1.35rem !important; }
+  [data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]):not(:has([data-testid="stHorizontalBlock"])) {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  [data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) > [data-testid="stColumn"] { width: auto; min-width: 0; }
+  [data-testid="stMetric"] { padding: 0.7rem 0.8rem 0.6rem; }
+  [data-testid="stMetricValue"] { font-size: 1.35rem; }
+  .estimate .value { font-size: 2.5rem; }
+}
