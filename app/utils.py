@@ -156,8 +156,40 @@ def card(key: str, **kwargs):
     return st.container(border=True, key=f"card_{key}", **kwargs)
 
 
+def takeaways(items):
+    """A row of small insight cards. Each item is (label, value, note) or (label, value, note, change),
+    where change is a fraction such as 0.12 and is shown as an up or down arrow with the percentage."""
+    cards = []
+    for label, value, note, *change in items:
+        delta = ""
+        if change and abs(change[0]) < 0.005:
+            delta = '<span class="t-delta">No change</span> · '
+        elif change:
+            up = change[0] > 0
+            delta = (f'<span class="t-delta {"up" if up else "down"}">{"▲" if up else "▼"} '
+                     f'{change[0]:+.0%}</span> ')
+        cards.append(f'<div class="takeaway"><div class="t-label">{label}</div>'
+                     f'<div class="t-value">{value}</div><div class="t-note">{delta}{note}</div></div>')
+    st.html(f'<div class="takeaways">{"".join(cards)}</div>')
+
+
+REPO_URL = "https://github.com/nodirbeksolijonov/MLDA-CW1-NYC-Property-Sales"
+
+
+def page_footer():
+    """Shown under every page, from streamlit_app.py."""
+    st.html(f'''<div class="footer">
+  <span>NYC Home Prices 2025 · Machine Learning and Data Analytics coursework · Student 00017544</span>
+  <span>Data: <a href="https://www.nyc.gov/site/finance/property/property-annualized-sales-update.page"
+  target="_blank">NYC Department of Finance</a> · <a href="{REPO_URL}" target="_blank">Source code</a></span>
+</div>''')
+
+
 def chart(fig):
     """Show a Plotly figure on a white card, in the app theme and without the Plotly toolbar."""
+    fig.update_layout(hoverlabel=dict(bgcolor="#ffffff", bordercolor="#dfe3ea", font=dict(color="#16202e", size=13)))
+    if fig.layout.title.text:   # setting a title font on a chart without a title would show "undefined"
+        fig.update_layout(title_font=dict(size=15, color="#16202e"))
     st.session_state["_chart_count"] += 1
     with st.container(border=True, key=f"chart_{st.session_state['_chart_count']}"):
         st.plotly_chart(fig, theme="streamlit", width="stretch", config={"displayModeBar": False})

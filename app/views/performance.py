@@ -6,7 +6,7 @@ import plotly.express as px
 import streamlit as st
 
 from utils import (BOROUGHS, FEATURE_LABELS, FINAL_MODEL_NAME, HIGHLIGHT, MUTED, chart, load_results, money,
-                   page_header, style_bars)
+                   page_header, style_bars, takeaways)
 
 comparison = load_results("model_comparison")
 test_pred = load_results("test_predictions")
@@ -29,6 +29,15 @@ tab_compare, tab_accuracy, tab_bias, tab_drivers = st.tabs([
 with tab_compare:
     # ---- Model comparison ----
     st.subheader("Comparing the four models")
+    cv = comparison["CV RMSE (log)"]
+    takeaways([
+        ("Best in cross-validation", cv.idxmin(), f"RMSE {cv.min():.4f} on the log price"),
+        ("Gain over the linear baseline",
+         f"{comparison.loc['Linear (Ridge)', 'val Median APE']:.1%} → {final['val Median APE']:.1%}",
+         "Median error on the validation set"),
+        ("Gap between best and worst model", f"{cv.max() - cv.min():.4f}",
+         "The four models are close: the data limits accuracy more than the algorithm"),
+    ])
     colors = {m: HIGHLIGHT if m == FINAL_MODEL_NAME else MUTED for m in comparison.index}
     left, right = st.columns(2)
     with left:
@@ -82,6 +91,11 @@ with tab_accuracy:
     st.subheader("Predicted vs actual prices on the test set")
     borough = st.selectbox("Show borough", ["All boroughs"] + BOROUGHS)
     d = test_pred if borough == "All boroughs" else test_pred[test_pred["borough_name"] == borough]
+    takeaways([
+        ("Typical error", f"{d['ape'].median():.1%}", "Half of the predictions are closer than this"),
+        ("Within 10% of the real price", f"{(d['ape'] <= 0.10).mean():.0%}", f"of {len(d):,} test sales"),
+        ("Within 25% of the real price", f"{(d['ape'] <= 0.25).mean():.0%}", f"of {len(d):,} test sales"),
+    ])
     left, right = st.columns(2)
     with left:
         lims = [d[["actual", "predicted"]].min().min() * 0.8, d[["actual", "predicted"]].max().max() * 1.2]
@@ -116,11 +130,22 @@ with tab_bias:
 
 
     st.subheader("Where the model is accurate and where it struggles")
+    bias_notes = st.container()   # filled below, once the errors per borough are computed
     band_by = st.radio("Form the price bands from the", ["actual price", "predicted price"], horizontal=True,
                        help="Grouping by actual price makes cheap sales look over-priced and expensive ones under-priced "
                             "even for a well-calibrated model (regression to the mean). Grouping by predicted price "
                             "is the fair calibration check.")
     by_borough = test_pred.groupby("borough_name").apply(summary, include_groups=False).reindex(BOROUGHS)
+    best_b, worst_b = by_borough["Median error"].idxmin(), by_borough["Median error"].idxmax()
+    with bias_notes:
+        takeaways([
+            ("Most accurate borough", best_b, f"Median error {by_borough.loc[best_b, 'Median error']:.1%}"),
+            ("Least accurate borough", worst_b,
+             f"Median error {by_borough.loc[worst_b, 'Median error']:.1%}, "
+             f"only {by_borough.loc[worst_b, 'sales']:.0f} test sales"),
+            ("Overall bias", f"{np.median(test_pred['predicted'] / test_pred['actual'] - 1):+.1%}",
+             "Median of predicted / actual − 1 over all test sales"),
+        ])
     bands = pd.qcut(test_pred["actual" if band_by == "actual price" else "predicted"], 5)
     by_band = test_pred.groupby(bands, observed=True).apply(summary, include_groups=False)
     by_band.index = [f"{money(b.left)} – {money(b.right)}" for b in by_band.index]
@@ -153,6 +178,13 @@ with tab_drivers:
     # ---- Feature importance ----
     st.subheader("Which features drive the predictions?")
     d = importance.rename(index=FEATURE_LABELS).sort_values("mean").reset_index()
+    location_share = importance.loc[["neighborhood", "zip_code", "borough_name"], "mean"].sum() / importance["mean"].sum()
+    takeaways([
+        ("Strongest driver", d["feature"].iloc[-1], f"Shuffling it raises the error by {d['mean'].iloc[-1]:.3f}"),
+        ("Location in total", f"{location_share:.0%}",
+         "Share of the total importance from neighbourhood, ZIP code and borough"),
+        ("Least useful feature", d["feature"].iloc[0], "Shuffling it barely changes the error"),
+    ])
     fig = px.bar(d, x="mean", y="feature", orientation="h", error_x="std", color_discrete_sequence=[HIGHLIGHT],
                  title="Permutation importance on the test set")
     fig.update_traces(hovertemplate="%{y}: +%{x:.4f} RMSE when shuffled<extra></extra>")

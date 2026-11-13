@@ -108,9 +108,9 @@ The app opens at http://localhost:8501 and has five pages:
 
 | Page | What it shows |
 |---|---|
-| **Overview** | Project summary and headline results |
+| **Overview** | Landing page with a price map of the city, headline results and a summary of how the model was built |
 | **Market dashboard** | Filters by borough, home type and quarter, then five tabs: prices (by borough, distribution, most/least expensive neighbourhoods, size vs price), trends (by month and by decade built), ZIP code price map (actual vs learned by the model), feature correlations, and the filtered data; ft²/m² switch in the sidebar |
-| **Price predictor** | Estimated 2025 price for a home you describe, with a realistic range and comparable sales |
+| **Price predictor** | Estimated 2025 price for a home you describe, with a realistic range, what-if cards (the same home with one input changed) and comparable sales |
 | **Model performance** | Four tabs: comparison of the four tuned models, predicted vs actual on the test set, errors by borough and price band, feature importance |
 | **Data & method** | Data source, cleaning steps, features and limitations |
 

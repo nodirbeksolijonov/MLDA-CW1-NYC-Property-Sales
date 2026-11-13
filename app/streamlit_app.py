@@ -7,7 +7,7 @@ import streamlit as st
 # make app/utils.py importable from the pages, wherever the app is started from
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from utils import ASSETS, FINAL_MODEL_NAME, apply_style  # noqa: E402
+from utils import ASSETS, FINAL_MODEL_NAME, apply_style, page_footer  # noqa: E402
 
 st.set_page_config(page_title="NYC Home Prices 2025", page_icon=str(ASSETS / "icon.svg"), layout="wide")
 apply_style()
@@ -32,3 +32,4 @@ st.sidebar.html(f'''<div class="sidebar-note"><b>Data</b><br>NYC Department of F
 <br><br><b>Model</b><br>{FINAL_MODEL_NAME}, log sale price</div>''')
 
 pages.run()
+page_footer()

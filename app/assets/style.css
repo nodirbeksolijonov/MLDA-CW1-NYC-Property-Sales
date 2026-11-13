@@ -81,3 +81,38 @@ h3 { margin-top: 0.6rem; }
   [data-testid="stMetricValue"] { font-size: 1.35rem; }
   .estimate .value { font-size: 2.5rem; }
 }
+
+/* Takeaway cards: short findings above the charts */
+.takeaways { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0.8rem; margin: 0 0 0.4rem; }
+.takeaway { background: #ffffff; border: 1px solid #dfe3ea; border-left: 3px solid #2a78d6; border-radius: 0.6rem;
+            padding: 0.75rem 1rem 0.7rem; box-shadow: 0 1px 2px rgba(16, 30, 51, 0.04); }
+.takeaway .t-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: #5b6677; }
+.takeaway .t-value { font-size: 1.15rem; font-weight: 650; letter-spacing: -0.01em; color: #16202e; margin: 0.15rem 0 0.1rem; }
+.takeaway .t-note { font-size: 0.84rem; line-height: 1.4; color: #5b6677; }
+.takeaway .t-delta { font-weight: 650; white-space: nowrap; }
+.takeaway .t-delta.up { color: #0f7a55; }
+.takeaway .t-delta.down { color: #b4411a; }
+
+/* Landing page hero */
+.st-key-hero { background: linear-gradient(150deg, #0f1e33 0%, #17345c 100%); border-radius: 1rem;
+               padding: 2.2rem 2.4rem 2rem; margin-bottom: 0.4rem; }
+.st-key-hero .eyebrow { color: #8fbaf0; }
+.hero-title { font-size: 2.7rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; color: #ffffff;
+              margin: 0.5rem 0 0.8rem; }
+.hero-lead { font-size: 1.05rem; line-height: 1.55; color: #c5d2e3; margin: 0 0 0.6rem; max-width: 34rem; }
+.hero-lead b { color: #ffffff; font-weight: 600; }
+.hero-map-note { font-size: 0.78rem; color: #9db6d6; text-align: center; margin: -0.6rem 0 0; }
+
+/* Footer */
+.footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4rem 1.5rem; margin-top: 2.5rem;
+          padding-top: 1rem; border-top: 1px solid #dfe3ea; font-size: 0.8rem; color: #6b7686; }
+.footer a { color: #2a78d6; text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .st-key-hero { padding: 1.5rem 1.2rem 1.3rem; }
+  .hero-title { font-size: 2rem; }
+}
+
+/* Streamlit Cloud adds "Fork" and GitHub buttons to the top bar; the footer links to the source instead */
+[data-testid="stToolbarActions"] { display: none; }

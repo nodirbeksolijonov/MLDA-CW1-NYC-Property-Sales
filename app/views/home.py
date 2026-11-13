@@ -1,18 +1,60 @@
+import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
 
-from utils import FINAL_MODEL_NAME, card, load_homes, load_results, money, page_header
+from utils import FINAL_MODEL_NAME, card, load_homes, load_results, load_zip_areas, money
 
 homes = load_homes()
 comparison = load_results("model_comparison")
 final = comparison.loc[FINAL_MODEL_NAME]
 
-page_header("NYC Home Prices 2025",
-            "Every 1–3 family home sold in New York City in 2025, explored and priced with machine learning.",
-            eyebrow="Machine Learning and Data Analytics coursework · Student 00017544")
+@st.cache_data
+def hero_map():
+    """Small map for the hero: median 2025 sale price of each ZIP code area (lighter = more expensive)."""
+    geo, zip_to_area = load_zip_areas()
+    area = homes["zip_code"].map(zip_to_area)
+    by_area = homes.groupby(area).agg(
+        sales=("sale_price", "size"), median=("sale_price", "median"),
+        place=("neighborhood_title", lambda n: n.value_counts().index[0]))
+    shown = by_area[by_area["sales"] >= 5]
+    fig = go.Figure()
+    fig.add_trace(go.Choropleth(   # every area in a muted blue underneath, so areas with few sales still show
+        geojson=geo, locations=[f["id"] for f in geo["features"]], z=[0] * len(geo["features"]),
+        colorscale=[[0, "#22406b"], [1, "#22406b"]], showscale=False, marker_line_color="#0f1e33",
+        marker_line_width=0.4, hoverinfo="skip"))
+    fig.add_trace(go.Choropleth(
+        geojson=geo, locations=shown.index, z=np.log10(shown["median"]),
+        zmin=np.log10(5e5), zmax=np.log10(6e6), showscale=False,
+        colorscale=[[0, "#2f5f9e"], [0.45, "#6aa9f0"], [1, "#f2f7fd"]],
+        marker_line_color="#0f1e33", marker_line_width=0.4,
+        customdata=np.column_stack([shown["place"], shown["median"].map(money), shown["sales"]]),
+        hovertemplate="%{customdata[0]}<br>Median %{customdata[1]} · %{customdata[2]} sales<extra></extra>"))
+    fig.update_geos(fitbounds="locations", visible=False, bgcolor="rgba(0,0,0,0)", projection_type="mercator")
+    fig.update_layout(height=330, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="rgba(0,0,0,0)", dragmode=False,
+                      hoverlabel=dict(bgcolor="#ffffff", font=dict(color="#16202e", size=13)))
+    return fig
+
+
+with st.container(key="hero"):
+    text_col, map_col = st.columns([6, 5], gap="large", vertical_alignment="center")
+    with text_col:
+        st.html(f"""
+<div class="eyebrow">Machine Learning and Data Analytics coursework · Student 00017544</div>
+<h1 class="hero-title">What is a New York home worth?</h1>
+<p class="hero-lead">All <b>{len(homes):,}</b> one- to three-family homes sold in New York City in 2025, explored
+and priced by a machine learning model that is typically within <b>{final['test Median APE']:.1%}</b> of the real
+sale price.</p>""")
+        b1, b2 = st.columns([1, 1], gap="small")
+        if b1.button("Estimate a price", type="primary", icon=":material/calculate:", width="stretch"):
+            st.switch_page("views/predictor.py")
+        if b2.button("Explore the market", icon=":material/monitoring:", width="stretch"):
+            st.switch_page("views/dashboard.py")
+    with map_col:
+        st.plotly_chart(hero_map(), theme=None, width="stretch", config={"displayModeBar": False, "scrollZoom": False})
+        st.html('<p class="hero-map-note">Median 2025 sale price by ZIP code area · lighter = more expensive</p>')
 
 st.markdown("""
-This app explores **every 1–3 family home sold in New York City in 2025** and predicts the price of a home
-from its location, size, age and type. It is built on the public
+Built on the public
 [NYC Department of Finance Annualized Sales](https://www.nyc.gov/site/finance/property/property-annualized-sales-update.page)
 records, cleaned and modelled in the accompanying Jupyter notebook.
 """)

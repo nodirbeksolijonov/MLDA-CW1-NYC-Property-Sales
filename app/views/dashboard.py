@@ -6,7 +6,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 
 from utils import (BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, card, chart, load_homes,
-                   load_model, load_zip_areas, money, page_header, style_bars, to_display_area)
+                   load_model, load_zip_areas, money, page_header, style_bars, takeaways, to_display_area)
 
 homes = load_homes()
 page_header("Market dashboard", "1–3 family market sales in New York City, January–December 2025")
@@ -41,6 +41,24 @@ tab_prices, tab_trends, tab_map, tab_features, tab_data = st.tabs([
     ":material/grid_on: Feature correlations", ":material/table_rows: Data"])
 
 with tab_prices:
+    # ---- Key findings for the current filters ----
+    q25, q75 = df["sale_price"].quantile([0.25, 0.75])
+    notes = [("Typical price", money(df["sale_price"].median()),
+              f"Half of the sales were between {money(q25)} and {money(q75)}")]
+    borough_median = df.groupby("borough_name")["sale_price"].median().sort_values()
+    if len(borough_median) > 1:
+        notes.append(("Most expensive borough", borough_median.index[-1],
+                      f"Median {money(borough_median.iloc[-1])}, "
+                      f"{borough_median.iloc[-1] / borough_median.iloc[0]:.1f}× {borough_median.index[0]}"))
+    nb_median = df.groupby("neighborhood_title")["sale_price"].agg(["median", "size"])
+    nb_median = nb_median[nb_median["size"] >= 10]
+    if not nb_median.empty:
+        top_nb = nb_median["median"].idxmax()
+        notes.append(("Most expensive neighbourhood", top_nb,
+                      f"Median {money(nb_median.loc[top_nb, 'median'])} across "
+                      f"{nb_median.loc[top_nb, 'size']:,} sales"))
+    takeaways(notes)
+
     # ---- Row 1: price by borough, price distribution ----
     left, right = st.columns(2)
     with left:
@@ -66,6 +84,24 @@ with tab_prices:
         chart(fig)
 
 with tab_trends:
+    # ---- Key findings for the current filters ----
+    per_month = df.groupby("sale_month").size()
+    notes = [("Busiest month", f"{per_month.idxmax():%B}", f"{per_month.max():,} sales")]
+    quarter_median = df.groupby("sale_quarter")["sale_price"].median()
+    if len(quarter_median) > 1:
+        first_q, last_q = quarter_median.index[0], quarter_median.index[-1]
+        notes.append((f"Median price, Q{first_q} to Q{last_q}",
+                      f"{money(quarter_median.iloc[0])} → {money(quarter_median.iloc[-1])}", "over the year",
+                      quarter_median.iloc[-1] / quarter_median.iloc[0] - 1))
+    decade_built = (df["year_built"].dropna() // 10 * 10).clip(lower=1880).astype(int)
+    decade_median = df.loc[decade_built.index].groupby(decade_built)["sale_price"].agg(["median", "size"])
+    decade_median = decade_median[decade_median["size"] >= 10]
+    if len(decade_median) > 1:
+        low_decade = decade_median["median"].idxmin()
+        notes.append(("Cheapest homes were built", "before 1890" if low_decade == 1880 else f"in the {low_decade}s",
+                      f"Median {money(decade_median.loc[low_decade, 'median'])}"))
+    takeaways(notes)
+
     # ---- Row 2: monthly trend (two separate charts, never a dual axis) ----
     monthly = (df.groupby(["sale_month", "borough_name"])["sale_price"]
                .agg(median="median", sales="size").reset_index())
@@ -139,6 +175,7 @@ with tab_prices:
 with tab_map:
     # ---- ZIP code map: actual prices vs what the model learned for each ZIP code ----
     zip_geo, zip_to_area = load_zip_areas()
+    map_notes = st.container()   # filled below, once the price of each area is known
     layer = st.radio("Colour the map by", ["Actual median sale price", "Price learned by the model"], horizontal=True,
                      help="The model does not use ZIP code as a number or a map position. Its target encoder "
                           "replaces each ZIP code with the typical price of its sales, learned from the training "
@@ -156,6 +193,17 @@ with tab_map:
     MIN_AREA_SALES = 5   # a median of fewer sales would let one sale colour a whole area
     shown = by_area[by_area["sales"] >= MIN_AREA_SALES]
     value = shown["actual" if layer.startswith("Actual") else "learned"]
+    if len(shown) > 1:
+        high_area, low_area = shown["actual"].idxmax(), shown["actual"].idxmin()
+        notes = [(f"{label} ZIP area", f"ZIP {shown.loc[a, 'zips'].split(',')[0]}",
+                  f"{shown.loc[a, 'neighbourhoods'].split(',')[0]} · median {money(shown.loc[a, 'actual'])}")
+                 for label, a in [("Most expensive", high_area), ("Least expensive", low_area)]]
+        agreement = shown["actual"].corr(shown["learned"], method="spearman")
+        if pd.notna(agreement):
+            notes.append(("Actual vs learned prices", f"{agreement:.2f}",
+                          "Rank correlation across the areas shown. Most of these sales were used to train the model"))
+        with map_notes:
+            takeaways(notes)
     price_ticks = [5e5, 1e6, 2e6, 5e6, 1e7]
     fig = go.Figure()
     fig.add_trace(go.Choroplethmap(   # every area in light grey underneath, so areas with few sales still show
@@ -240,12 +288,28 @@ with tab_features:
     constant = [c for c in features.columns if features[c].nunique() <= 1]
     features = features.drop(columns=constant)
 
+    feature_notes = st.container()   # filled below, once the correlations are computed
     method = st.radio("Correlation", ["Spearman", "Pearson"], horizontal=True,
                       help="Spearman uses ranks, so it captures any steadily rising or falling relationship and is "
                            "less affected by outliers; Pearson measures straight-line relationships only")
     corr = correlation_matrix(features, method)
     # Show the lower triangle only: the upper half repeats it and the diagonal is always 1
     corr_lower = corr.where(np.tril(np.ones(corr.shape, dtype=bool), k=-1)).iloc[1:, :-1]
+    if "Log price" in corr.columns and len(corr) > 2:
+        with_price = corr["Log price"].drop("Log price").dropna()
+        pairs = corr_lower.drop(columns="Log price").stack()
+        notes = []
+        if not with_price.empty:
+            strongest, weakest = with_price.abs().idxmax(), with_price.abs().idxmin()
+            notes += [("Strongest link with price", strongest, f"{method} correlation {with_price[strongest]:+.2f}"),
+                      ("Weakest link with price", weakest, f"{method} correlation {with_price[weakest]:+.2f}")]
+        if not pairs.empty:
+            a, b = pairs.abs().idxmax()
+            notes.append(("Most related pair of features", f"{a} and {b}",
+                          f"{method} correlation {pairs[(a, b)]:+.2f}: they partly carry the same information"))
+        if notes:
+            with feature_notes:
+                takeaways(notes)
     fig = go.Figure(go.Heatmap(
         z=corr_lower.values, x=corr_lower.columns, y=corr_lower.index, zmin=-1, zmax=1, zmid=0,
         colorscale=[[0, "#2a78d6"], [0.5, "#f1f0ed"], [1, "#d6542a"]],   # blue = negative, grey = 0, red = positive

@@ -1,9 +1,10 @@
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 from utils import (BOROUGHS, BUILDING_CLASSES, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, build_features,
-                   card, chart, load_homes, load_model, load_results, money, page_header, to_display_area, to_sqft)
+                   card, chart, load_homes, load_model, load_results, money, page_header, takeaways, to_display_area, to_sqft)
 
 homes = load_homes()
 model = load_model()
@@ -115,6 +116,34 @@ with result_col:
     if nb_counts[neighborhood] < 5:
         st.warning(f"Only {nb_counts[neighborhood]} sale(s) in {neighborhood.title()} in 2025, so the model knows "
                    "little about this neighbourhood's price level.")
+
+# ---- What would change the estimate? The same home with one input changed at a time ----
+st.subheader("What would change the estimate?")
+inputs = dict(borough=borough, neighborhood=neighborhood, zip_code=zip_code, home_type=home_type,
+              building_class=building_class, gross_sqft=gross if size_known else None,
+              land_sqft=land if size_known else None, year_built=year_built, sale_quarter=quarter)
+what_ifs = []   # (label, note, changed inputs)
+if size_known:
+    what_ifs.append(("20% more floor area", f"{gross_in * 1.2:,.0f} {unit} instead of {gross_in:,}",
+                     {"gross_sqft": gross * 1.2}))
+    what_ifs.append(("20% more land", f"{land_in * 1.2:,.0f} {unit} instead of {land_in:,}", {"land_sqft": land * 1.2}))
+other_year = 2020 if year_built <= 2005 else 1960
+what_ifs.append((f"Built in {other_year}", f"instead of {year_built}", {"year_built": other_year}))
+# The same home in the most and the least expensive neighbourhood of the borough (at least 10 sales each)
+nb_price = in_borough.groupby("neighborhood")["sale_price"].agg(["median", "size"])
+nb_price = nb_price[(nb_price["size"] >= 10) & (nb_price.index != neighborhood)]
+if len(nb_price) > 1:
+    for nb, kind in [(nb_price["median"].idxmax(), "most"), (nb_price["median"].idxmin(), "least")]:
+        nb_zip = in_borough.loc[in_borough["neighborhood"] == nb, "zip_code"].mode().iloc[0]
+        what_ifs.append((f"In {nb.title()}", f"the {kind} expensive neighbourhood in {borough}",
+                         {"neighborhood": nb, "zip_code": nb_zip}))
+
+what_if_X = pd.concat([build_features(**{**inputs, **changed}) for _, _, changed in what_ifs], ignore_index=True)
+what_if_price = np.exp(model.predict(what_if_X))
+takeaways([(label, money(price), note, price / estimate - 1)
+           for (label, note, _), price in zip(what_ifs, what_if_price)])
+st.caption("Each card changes one input and asks the model again; the arrow shows the change from the estimate above. "
+           "This shows how the model behaves. It is not a promise of what an extension or a move would add.")
 
 # ---- Comparable sales ----
 st.subheader("Comparable sales in the same neighbourhood")
