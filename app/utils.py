@@ -26,6 +26,26 @@ HOME_TYPES = ["1-family", "2-family", "3-family"]
 HIGHLIGHT = "#2a78d6"   # the final model / the main series
 MUTED = "#a3a29c"       # everything it is compared against
 
+# Colours of the custom styles and charts, for the light and the dark theme
+LIGHT = dict(page="#f5f6f8", card="#ffffff", ink="#16202e", muted="#5b6677", faint="#6b7686", line="#dfe3ea",
+             chip="#e9f1fc", accent="#2a78d6", up="#0f7a55", down="#b4411a",
+             zero="#f1f0ed", cell_text="#1f1f1d",                       # correlation heatmap: colour at 0, numbers
+             map_style="carto-positron", map_empty="#e4e3df",           # ZIP map: base map, areas with few sales
+             map_scale=[[0, "#dceaf9"], [0.5, "#5b9be0"], [1, "#0d3a73"]])   # darker = more expensive
+DARK = dict(page="#0a1422", card="#131f33", ink="#e8edf5", muted="#a3b1c6", faint="#8a99b0", line="#2a3d5c",
+            chip="#1d3558", accent="#6aa9f0", up="#4cc79a", down="#f08a5d",
+            zero="#2b384c", cell_text="#f2f5f9",
+            map_style="carto-darkmatter", map_empty="#26344a",
+            map_scale=[[0, "#1f3f6e"], [0.5, "#5b9be0"], [1, "#e6f0fc"]])    # lighter = more expensive
+
+
+def palette() -> dict:
+    """The colours for the theme the visitor's browser is showing (light unless it reports dark)."""
+    try:
+        return DARK if st.context.theme.type == "dark" else LIGHT
+    except Exception:   # no browser context, e.g. in tests
+        return LIGHT
+
 # NYC Department of Finance building class codes found in the data
 BUILDING_CLASSES = {
     "A0": "Cape Cod style", "A1": "Two-storey detached", "A2": "One-storey",
@@ -64,7 +84,7 @@ def to_sqft(value):
     return value * SQFT_PER_M2 if area_unit() == "m²" else value
 
 
-@st.cache_data
+@st.cache_data(show_spinner="Loading the 2025 sales…")
 def load_homes() -> pd.DataFrame:
     df = pd.read_csv(DATA_FILE, index_col="row_id", parse_dates=["sale_date"])
     df["sale_month"] = df["sale_date"].dt.to_period("M").dt.to_timestamp()
@@ -76,7 +96,7 @@ def load_homes() -> pd.DataFrame:
 ZIP_GEO_FILE = ROOT / "data" / "nyc_zip_boundaries.geojson"
 
 
-@st.cache_data
+@st.cache_data(show_spinner="Loading the ZIP code map…")
 def load_zip_areas():
     """ZIP boundary areas (NYC Open Data MODZCTA, simplified) and a ZIP code -> area lookup.
     A few areas cover more than one ZIP code, so sales are grouped by area."""
@@ -85,7 +105,7 @@ def load_zip_areas():
     return geo, zip_to_area
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner="Loading the price model…")
 def load_model():
     return joblib.load(MODEL_FILE)
 
@@ -136,12 +156,51 @@ def style_bars(fig, horizontal=True, pad=1.3):
     return fig
 
 
+# ---- Shareable links: the current view is kept in the page address (?borough=Queens&tab=map ...) ----
+def url_list(name: str, options: list) -> list:
+    """The valid values of a repeated address parameter, in the order of the options."""
+    chosen = set(st.query_params.get_all(name))
+    return [o for o in options if str(o) in chosen]
+
+
+def url_value(name: str, options: list = None, cast=str):
+    """One address parameter, converted with `cast`; None if it is missing, malformed or not an allowed option."""
+    raw = st.query_params.get(name)
+    if raw is None:
+        return None
+    try:
+        value = cast(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if options is None or value in options else None
+
+
+def seed(key: str, value):
+    """Starting value of the widget with this key, used only the first time the widget is shown."""
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+def set_url(**params):
+    """Write the view to the page address. Pass only what differs from the defaults, so plain views keep a clean address."""
+    params = {k: v for k, v in params.items() if v is not None and v != []}
+    if area_unit() == "m²":
+        params["unit"] = "m2"
+    st.query_params.from_dict(params)
+
+
+def empty_state(title: str, text: str):
+    """A clear message where charts would be, when there is nothing to show."""
+    st.html(f'''<div class="empty-state"><div class="e-title">{title}</div><div class="e-text">{text}</div></div>''')
+
+
 ASSETS = Path(__file__).resolve().parent / "assets"
 
 
 def apply_style():
     """Load the shared stylesheet (app/assets/style.css). Called once per run from streamlit_app.py."""
-    st.html(f"<style>{(ASSETS / 'style.css').read_text()}</style>")
+    colours = "".join(f"--{name}: {value}; " for name, value in palette().items() if isinstance(value, str))
+    st.html(f"<style>:root {{ {colours}}}\n{(ASSETS / 'style.css').read_text()}</style>")
     st.session_state["_chart_count"] = 0
 
 
@@ -187,9 +246,10 @@ def page_footer():
 
 def chart(fig):
     """Show a Plotly figure on a white card, in the app theme and without the Plotly toolbar."""
-    fig.update_layout(hoverlabel=dict(bgcolor="#ffffff", bordercolor="#dfe3ea", font=dict(color="#16202e", size=13)))
+    p = palette()
+    fig.update_layout(hoverlabel=dict(bgcolor=p["card"], bordercolor=p["line"], font=dict(color=p["ink"], size=13)))
     if fig.layout.title.text:   # setting a title font on a chart without a title would show "undefined"
-        fig.update_layout(title_font=dict(size=15, color="#16202e"))
+        fig.update_layout(title_font=dict(size=15, color=p["ink"]))
     st.session_state["_chart_count"] += 1
     with st.container(border=True, key=f"chart_{st.session_state['_chart_count']}"):
         st.plotly_chart(fig, theme="streamlit", width="stretch", config={"displayModeBar": False})

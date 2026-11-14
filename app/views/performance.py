@@ -6,7 +6,7 @@ import plotly.express as px
 import streamlit as st
 
 from utils import (BOROUGHS, FEATURE_LABELS, FINAL_MODEL_NAME, HIGHLIGHT, MUTED, chart, load_results, money,
-                   page_header, style_bars, takeaways)
+                   page_header, palette, set_url, style_bars, takeaways, url_value)
 
 comparison = load_results("model_comparison")
 test_pred = load_results("test_predictions")
@@ -22,11 +22,10 @@ k2.metric("Mean absolute error (test)", money(final["test MAE ($)"]))
 k3.metric("R² on log price (test)", f"{final['test R² (log)']:.3f}")
 k4.metric("RMSE on log price (test)", f"{final['test RMSE (log)']:.3f}")
 
-tab_compare, tab_accuracy, tab_bias, tab_drivers = st.tabs([
-    ":material/leaderboard: Model comparison", ":material/scatter_plot: Predicted vs actual",
-    ":material/balance: Where it struggles", ":material/key: What drives the price"])
+# ---- The four parts of the page, one function each. They are grouped into tabs at the end of the file ----
 
-with tab_compare:
+
+def model_comparison():
     # ---- Model comparison ----
     st.subheader("Comparing the four models")
     cv = comparison["CV RMSE (log)"]
@@ -86,7 +85,8 @@ with tab_compare:
     - Test results were measured only for the final model and two reference models, once, after all choices were made.
     """)
 
-with tab_accuracy:
+
+def predicted_vs_actual():
     # ---- Predicted vs actual ----
     st.subheader("Predicted vs actual prices on the test set")
     borough = st.selectbox("Show borough", ["All boroughs"] + BOROUGHS)
@@ -114,7 +114,7 @@ with tab_accuracy:
         pct = (np.exp(d["residual_log"]) - 1) * 100
         fig = px.histogram(x=pct.clip(-80, 200), nbins=60, color_discrete_sequence=[HIGHLIGHT],
                            title="Prediction error (% of actual price)")
-        fig.update_traces(marker_line_width=1, marker_line_color="white", hovertemplate="%{y:,} sales<extra></extra>")
+        fig.update_traces(marker_line_width=1, marker_line_color=palette()["card"], hovertemplate="%{y:,} sales<extra></extra>")
         fig.add_vline(x=0, line_dash="dash", line_color=MUTED)
         fig.update_layout(xaxis_title="Predicted / actual − 1 (%)  ·  above 0 = over-predicted", yaxis_title="Sales",
                           bargap=0)
@@ -122,7 +122,7 @@ with tab_accuracy:
         st.caption(f"Median error {d['ape'].median():.1%}. Errors beyond −80% / +200% are shown in the end bins.")
 
 
-with tab_bias:
+def where_it_struggles():
     # ---- Where the model struggles ----
     def summary(g):
         return pd.Series({"sales": len(g), "Median error": g["ape"].median(),
@@ -174,7 +174,8 @@ with tab_bias:
     - **Manhattan is under-priced**: it has very few 1–3 family sales, so the model pulls it towards the average.
     """)
 
-with tab_drivers:
+
+def price_drivers():
     # ---- Feature importance ----
     st.subheader("Which features drive the predictions?")
     d = importance.rename(index=FEATURE_LABELS).sort_values("mean").reset_index()
@@ -193,3 +194,21 @@ with tab_drivers:
     chart(fig)
     st.caption("Each feature is shuffled 10 times; the bar is the average increase in error and the line its spread. "
                "Location (neighbourhood and ZIP code) dominates, together with building size. The two location columns overlap, so each looks less important alone than location really is.")
+
+
+# ---- Tabs. Only the open tab is computed, and it is kept in the page address so a link opens the same view ----
+TABS = {   # name in the address -> (label, content)
+    "comparison": (":material/leaderboard: Model comparison", model_comparison),
+    "accuracy": (":material/scatter_plot: Predicted vs actual", predicted_vs_actual),
+    "bias": (":material/balance: Where it struggles", where_it_struggles),
+    "drivers": (":material/key: What drives the price", price_drivers),
+}
+tabs = st.tabs([label for label, _ in TABS.values()], key="perf_tab", on_change="rerun",
+               default=TABS[url_value("tab", list(TABS)) or "comparison"][0])
+for name, tab, (label, content) in zip(TABS, tabs, TABS.values()):
+    if tab.open:
+        open_tab = name
+        with tab:
+            content()
+
+set_url(tab=open_tab if open_tab != "comparison" else None)

@@ -4,7 +4,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils import (BOROUGHS, BUILDING_CLASSES, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, build_features,
-                   card, chart, load_homes, load_model, load_results, money, page_header, takeaways, to_display_area, to_sqft)
+                   card, chart, load_homes, load_model, load_results, money, page_header, palette, seed, set_url, takeaways,
+                   to_display_area, to_sqft, url_value)
 
 homes = load_homes()
 model = load_model()
@@ -22,23 +23,33 @@ form_col, result_col = st.columns([3, 2], gap="medium")
 
 with form_col, card("inputs"):
     st.markdown("#### Describe the home")
+    # Every input starts from the page address when a shared link carries it, otherwise from a sensible default.
+    # An input whose choices depend on another input has that input in its key, so it starts afresh when it changes.
     c1, c2, c3 = st.columns([2, 3, 2.4])
-    borough = c1.selectbox("Borough", BOROUGHS, index=BOROUGHS.index("Queens"))
+    seed("pred_borough", url_value("borough", BOROUGHS) or "Queens")
+    borough = c1.selectbox("Borough", BOROUGHS, key="pred_borough")
     in_borough = homes[homes["borough_name"] == borough]
     nb_counts = in_borough["neighborhood"].value_counts()
     nb_options = sorted(nb_counts.index)
-    neighborhood = c2.selectbox("Neighbourhood", nb_options, index=nb_options.index(nb_counts.idxmax()),
+    nb_default = nb_counts.idxmax()
+    seed(f"pred_nb_{borough}", url_value("nb", nb_options) or nb_default)
+    neighborhood = c2.selectbox("Neighbourhood", nb_options, key=f"pred_nb_{borough}",
                                 format_func=lambda n: f"{n.title()} ({n_sales(nb_counts[n])})")
     zip_counts = in_borough.loc[in_borough["neighborhood"] == neighborhood, "zip_code"].value_counts()
-    zip_code = c3.selectbox("ZIP code", zip_counts.index,
+    zip_options = list(zip_counts.index)
+    seed(f"pred_zip_{borough}_{neighborhood}", url_value("zip", zip_options) or zip_options[0])
+    zip_code = c3.selectbox("ZIP code", zip_options, key=f"pred_zip_{borough}_{neighborhood}",
                             format_func=lambda z: f"{z} ({n_sales(zip_counts[z])})",
                             help="ZIP codes with 2025 sales in this neighbourhood, most sales first")
 
     c1, c2, c3 = st.columns([2, 3, 2.4])
-    home_type = c1.selectbox("Home type", HOME_TYPES)
+    seed("pred_type", url_value("type", HOME_TYPES) or HOME_TYPES[0])
+    home_type = c1.selectbox("Home type", HOME_TYPES, key="pred_type")
 
     class_counts = homes.loc[homes["home_type"] == home_type, "building_class_at_time_of_sale"].value_counts()
-    building_class = c2.selectbox("Building class", class_counts.index,
+    class_options = list(class_counts.index)
+    seed(f"pred_class_{home_type}", url_value("class", class_options) or class_options[0])
+    building_class = c2.selectbox("Building class", class_options, key=f"pred_class_{home_type}",
                                   format_func=lambda c: f"{c}: {BUILDING_CLASSES.get(c, c)}")
 
     similar = homes[(homes["neighborhood"] == neighborhood) & (homes["home_type"] == home_type)]
@@ -53,7 +64,11 @@ with form_col, card("inputs"):
         value = convert(source[col].median())
         return int(min(max(value, lo), hi))
 
-    year_built = c3.number_input("Year built", 1800, 2025, default_value("year_built", 1800, 2025), step=1)
+    # The typical year and sizes depend on the neighbourhood and home type, so these inputs restart with them
+    context = f"{borough}_{neighborhood}_{home_type}"
+    year_default = default_value("year_built", 1800, 2025)
+    seed(f"pred_year_{context}", url_value("year", range(1800, 2026), int) or year_default)
+    year_built = c3.number_input("Year built", 1800, 2025, key=f"pred_year_{context}", step=1)
 
     # If none of the similar homes have a recorded size, start with "unknown" ticked
     sizes_missing_here = defaults["gross_square_feet"].isna().all()
@@ -63,18 +78,42 @@ with form_col, card("inputs"):
                                                   else (25, 1_900, 20, 4_650, 5))
     c1, c2, c3 = st.columns(3)
     size_box = st.container()   # the checkbox is shown under the size inputs but must be read before them
+    unknown_default = bool(sizes_missing_here)
+    seed(f"pred_unknown_{context}", {"1": True, "0": False}.get(st.query_params.get("unknown"), unknown_default))
     size_known = not size_box.checkbox(
-        "Floor and land area unknown", value=bool(sizes_missing_here),
+        "Floor and land area unknown", key=f"pred_unknown_{context}",
         help="The model then fills in typical sizes, as it does for missing values in the data")
-    gross_in = c1.number_input(f"Gross floor area ({unit})", gross_lo, gross_hi,
-                               default_value("gross_square_feet", gross_lo, gross_hi, to_display_area),
+    gross_default = default_value("gross_square_feet", gross_lo, gross_hi, to_display_area)
+    land_default = default_value("land_square_feet", land_lo, land_hi, to_display_area)
+    # sizes in a shared link are in the link's unit, so they are only used when that is the unit shown
+    same_unit = (st.query_params.get("unit") == "m2") == (unit == "m²")
+    seed(f"pred_gross_{context}_{unit}",
+         (url_value("floor", range(gross_lo, gross_hi + 1), int) if same_unit else None) or gross_default)
+    seed(f"pred_land_{context}_{unit}",
+         (url_value("land", range(land_lo, land_hi + 1), int) if same_unit else None) or land_default)
+    gross_in = c1.number_input(f"Gross floor area ({unit})", gross_lo, gross_hi, key=f"pred_gross_{context}_{unit}",
                                step=step, disabled=not size_known)
-    land_in = c2.number_input(f"Land area ({unit})", land_lo, land_hi,
-                              default_value("land_square_feet", land_lo, land_hi, to_display_area),
+    land_in = c2.number_input(f"Land area ({unit})", land_lo, land_hi, key=f"pred_land_{context}_{unit}",
                               step=step, disabled=not size_known)
     # The model was trained on square feet, so convert back before predicting
     gross, land = to_sqft(gross_in), to_sqft(land_in)
-    quarter = c3.selectbox("Quarter of sale (2025)", [1, 2, 3, 4], index=3, format_func=lambda q: f"Q{q}")
+    seed("pred_quarter", url_value("q", [1, 2, 3, 4], int) or 4)
+    quarter = c3.selectbox("Quarter of sale (2025)", [1, 2, 3, 4], key="pred_quarter", format_func=lambda q: f"Q{q}")
+
+# Keep the page address in step with the inputs (only what differs from the defaults), so it can be shared
+set_url(**{
+    "borough": borough if borough != "Queens" else None,
+    "nb": neighborhood if neighborhood != nb_default else None,
+    "zip": zip_code if zip_code != zip_options[0] else None,
+    "type": home_type if home_type != HOME_TYPES[0] else None,
+    "class": building_class if building_class != class_options[0] else None,
+    "year": int(year_built) if year_built != year_default else None,
+    "floor": int(gross_in) if size_known and gross_in != gross_default else None,
+    "land": int(land_in) if size_known and land_in != land_default else None,
+    "unknown": ("0" if size_known else "1") if size_known == unknown_default else None,
+    "q": quarter if quarter != 4 else None,
+})
+form_col.caption(":material/link: The page address follows your inputs, so you can copy it to share this exact estimate.")
 
 # ---- Prediction ----
 X = build_features(borough, neighborhood, zip_code, home_type, building_class,
@@ -161,25 +200,28 @@ else:
         comps["price_text"] = comps["sale_price"].map("${:,.0f}".format)
         comps[["gross_square_feet", "land_square_feet"]] = to_display_area(
             comps[["gross_square_feet", "land_square_feet"]]).round()
-        st.dataframe(comps[["building_class_at_time_of_sale", "gross_square_feet", "land_square_feet",
-                            "year_built", "sale_date", "price_text"]]
-                     .rename(columns={"building_class_at_time_of_sale": "Class",
-                                      "gross_square_feet": f"Floor area ({unit})",
-                                      "land_square_feet": f"Land area ({unit})", "year_built": "Built",
-                                      "sale_date": "Sold", "price_text": "Price"}),
-                     hide_index=True, width="stretch",
+        comps_table = (comps[["building_class_at_time_of_sale", "gross_square_feet", "land_square_feet",
+                              "year_built", "sale_date", "price_text"]]
+                       .rename(columns={"building_class_at_time_of_sale": "Class",
+                                        "gross_square_feet": f"Floor area ({unit})",
+                                        "land_square_feet": f"Land area ({unit})", "year_built": "Built",
+                                        "sale_date": "Sold", "price_text": "Price"}))
+        st.dataframe(comps_table, hide_index=True, width="stretch",
                      column_config={"Sold": st.column_config.DateColumn(format="MMM YYYY"),
                                     "Built": st.column_config.NumberColumn(format="%d"),
                                     f"Floor area ({unit})": st.column_config.NumberColumn(format="localized"),
                                     f"Land area ({unit})": st.column_config.NumberColumn(format="localized")})
+        st.download_button("Download as CSV", on_click="ignore", icon=":material/download:",
+                           data=comps_table.assign(Price=comps["sale_price"]).to_csv(index=False).encode("utf-8"),
+                           file_name=f"comparable_sales_{neighborhood.lower().replace(' ', '_')}.csv", mime="text/csv")
     with right:
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=comps["sale_price"], y=["Comparable sales"] * len(comps), mode="markers",
-                                 marker=dict(size=12, color=MUTED, line=dict(width=2, color="white")),
+                                 marker=dict(size=12, color=MUTED, line=dict(width=2, color=palette()["card"])),
                                  name="Comparable sale", hovertemplate="%{x:$,.0f}<extra></extra>"))
         fig.add_trace(go.Scatter(x=[estimate], y=["Comparable sales"], mode="markers",
                                  marker=dict(size=18, color=HIGHLIGHT, symbol="diamond",
-                                             line=dict(width=2, color="white")),
+                                             line=dict(width=2, color=palette()["card"])),
                                  name="Model estimate", hovertemplate="Estimate %{x:$,.0f}<extra></extra>"))
         fig.update_layout(height=260, title="Estimate vs comparable sales", xaxis_tickformat="$,.2s",
                           yaxis_visible=False, legend=dict(orientation="h", y=-0.35), margin=dict(t=50))

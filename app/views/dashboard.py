@@ -5,23 +5,40 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
-from utils import (BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, card, chart, load_homes,
-                   load_model, load_zip_areas, money, page_header, style_bars, takeaways, to_display_area)
+from utils import (BOROUGH_COLORS, BOROUGHS, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, card, chart, empty_state,
+                   load_homes, load_model, load_zip_areas, money, page_footer, page_header, palette, seed, set_url, style_bars,
+                   takeaways, to_display_area, url_list, url_value)
 
 homes = load_homes()
+THEME = palette()   # chart colours for the light or the dark theme
 page_header("Market dashboard", "1–3 family market sales in New York City, January–December 2025")
 
-# ---- Filters, in one row above the charts ----
+# ---- Filters, in one row above the charts. A shared link can carry them in the page address ----
+QUARTERS = [1, 2, 3, 4]
+seed("dash_boroughs", url_list("borough", BOROUGHS) or BOROUGHS)
+seed("dash_types", url_list("type", HOME_TYPES) or HOME_TYPES)
+url_quarters = (url_value("from", QUARTERS, int) or 1, url_value("to", QUARTERS, int) or 4)
+if url_quarters[0] > url_quarters[1]:
+    url_quarters = (1, 4)
 with card("filters"):
     f1, f2, f3 = st.columns([5, 4, 2], gap="medium")
-    boroughs = f1.multiselect("Borough", BOROUGHS, default=BOROUGHS)
-    types = f2.multiselect("Home type", HOME_TYPES, default=HOME_TYPES)
-    q_from, q_to = f3.select_slider("Quarter", options=[1, 2, 3, 4], value=(1, 4), format_func=lambda q: f"Q{q}")
+    boroughs = f1.multiselect("Borough", BOROUGHS, key="dash_boroughs")
+    types = f2.multiselect("Home type", HOME_TYPES, key="dash_types")
+    # the quarter range is passed as a value (not seeded) because the slider needs it to know it is a range
+    q_from, q_to = f3.select_slider("Quarter", options=QUARTERS, value=url_quarters, key="dash_quarters",
+                                    format_func=lambda q: f"Q{q}")
+    st.caption(":material/link: The page address follows the filters and the open tab, so you can copy it to share "
+               "this exact view.")
 
 df = homes[homes["borough_name"].isin(boroughs) & homes["home_type"].isin(types)
            & homes["sale_quarter"].between(q_from, q_to)]
 if df.empty:
-    st.warning("No sales match these filters.")
+    if not boroughs or not types:
+        empty_state("Nothing selected", "Choose at least one borough and one home type above to see the market.")
+    else:
+        empty_state("No sales match these filters",
+                    "No home of this type was sold in the chosen boroughs and quarters. Try a wider selection.")
+    page_footer()
     st.stop()
 
 unit = area_unit()
@@ -35,12 +52,10 @@ k4.metric("Median building size", f"{floor_area.median():,.0f} {unit}")
 
 borough_colors = {b: BOROUGH_COLORS[b] for b in boroughs}
 
-# The charts are grouped into tabs; the filters and headline numbers above apply to every tab
-tab_prices, tab_trends, tab_map, tab_features, tab_data = st.tabs([
-    ":material/sell: Prices", ":material/timeline: Trends", ":material/map: ZIP code map",
-    ":material/grid_on: Feature correlations", ":material/table_rows: Data"])
+# ---- The charts, one function per section. They are grouped into tabs at the end of the file ----
 
-with tab_prices:
+
+def prices_overview():
     # ---- Key findings for the current filters ----
     q25, q75 = df["sale_price"].quantile([0.25, 0.75])
     notes = [("Typical price", money(df["sale_price"].median()),
@@ -77,13 +92,14 @@ with tab_prices:
         fig = px.histogram(x=np.log10(df["sale_price"]), nbins=50, title="Distribution of sale prices (log scale)",
                            color_discrete_sequence=[HIGHLIGHT])
         ticks = [1e5, 2e5, 5e5, 1e6, 2e6, 5e6, 1e7, 2e7, 5e7]
-        fig.update_traces(marker_line_width=1, marker_line_color="white",
+        fig.update_traces(marker_line_width=1, marker_line_color=THEME["card"],
                           hovertemplate="%{y:,} sales<extra></extra>")
         fig.update_layout(xaxis=dict(title="Sale price", tickvals=np.log10(ticks), ticktext=[money(t) for t in ticks]),
                           yaxis_title="Sales", bargap=0)
         chart(fig)
 
-with tab_trends:
+
+def trends_by_month():
     # ---- Key findings for the current filters ----
     per_month = df.groupby("sale_month").size()
     notes = [("Busiest month", f"{per_month.idxmax():%B}", f"{per_month.max():,} sales")]
@@ -91,7 +107,7 @@ with tab_trends:
     if len(quarter_median) > 1:
         first_q, last_q = quarter_median.index[0], quarter_median.index[-1]
         notes.append((f"Median price, Q{first_q} to Q{last_q}",
-                      f"{money(quarter_median.iloc[0])} → {money(quarter_median.iloc[-1])}", "over the year",
+                      f"{money(quarter_median.iloc[0])} → {money(quarter_median.iloc[-1])}", "first to last quarter shown",
                       quarter_median.iloc[-1] / quarter_median.iloc[0] - 1))
     decade_built = (df["year_built"].dropna() // 10 * 10).clip(lower=1880).astype(int)
     decade_median = df.loc[decade_built.index].groupby(decade_built)["sale_price"].agg(["median", "size"])
@@ -119,7 +135,7 @@ with tab_trends:
         fig = px.bar(monthly, x="sale_month", y="sales", color="borough_name", color_discrete_map=borough_colors,
                      category_orders={"borough_name": BOROUGHS}, title="Number of sales by month",
                      labels={"borough_name": "Borough"})
-        fig.update_traces(marker_line_width=1, marker_line_color="white",
+        fig.update_traces(marker_line_width=1, marker_line_color=THEME["card"],
                           hovertemplate="%{x|%b %Y}<br>%{y:,} sales<extra>%{fullData.name}</extra>")
         fig.update_layout(xaxis_title=None, yaxis_title=None, bargap=0.25,
                           legend=dict(orientation="h", y=-0.15, title=None))
@@ -127,7 +143,8 @@ with tab_trends:
     if df["borough_name"].eq("Manhattan").any():
         st.caption("Manhattan has very few 1–3 family sales per month, so its monthly median jumps around a lot.")
 
-with tab_prices:
+
+def prices_neighbourhoods():
     # ---- Row 3: neighbourhoods and size vs price ----
     left, right = st.columns(2)
     with left:
@@ -172,7 +189,8 @@ with tab_prices:
         st.caption(f"Random sample of {len(sample):,} sales. Bigger homes cost more, but at any size the price "
                    "still varies a lot, mostly because of location.")
 
-with tab_map:
+
+def zip_map():
     # ---- ZIP code map: actual prices vs what the model learned for each ZIP code ----
     zip_geo, zip_to_area = load_zip_areas()
     map_notes = st.container()   # filled below, once the price of each area is known
@@ -208,12 +226,13 @@ with tab_map:
     fig = go.Figure()
     fig.add_trace(go.Choroplethmap(   # every area in light grey underneath, so areas with few sales still show
         geojson=zip_geo, locations=[f["id"] for f in zip_geo["features"]], z=[0] * len(zip_geo["features"]),
-        colorscale=[[0, "#e4e3df"], [1, "#e4e3df"]], showscale=False, marker_line_color="white",
+        colorscale=[[0, THEME["map_empty"]], [1, THEME["map_empty"]]], showscale=False,
+        marker_line_color=THEME["card"],
         marker_line_width=0.5, hoverinfo="skip"))
     fig.add_trace(go.Choroplethmap(
         geojson=zip_geo, locations=shown.index, z=np.log10(value),
         zmin=np.log10(5e5), zmax=np.log10(1.2e7),   # fixed range: equal colours mean equal prices on both layers
-        colorscale=[[0, "#dceaf9"], [0.5, "#5b9be0"], [1, "#0d3a73"]], marker_line_color="white",
+        colorscale=THEME["map_scale"], marker_line_color=THEME["card"],
         marker_line_width=0.5, marker_opacity=0.85,
         colorbar=dict(title="Price", tickvals=np.log10(price_ticks), ticktext=[money(t) for t in price_ticks],
                       thickness=12),
@@ -221,7 +240,7 @@ with tab_map:
         hovertemplate="ZIP %{customdata[0]}<br>%{customdata[1]}<br>"
                       + ("Median price" if layer.startswith("Actual") else "Learned price")
                       + " $%{customdata[2]:,.0f}<br>%{customdata[3]:,} sales<extra></extra>"))
-    fig.update_layout(map=dict(style="carto-positron", center=dict(lat=40.70, lon=-73.94), zoom=9.2),
+    fig.update_layout(map=dict(style=THEME["map_style"], center=dict(lat=40.70, lon=-73.94), zoom=9.2),
                       height=620, margin=dict(l=0, r=0, t=10, b=0))
     chart(fig)
     st.caption(f"ZIP areas with fewer than {MIN_AREA_SALES} sales under the current filters are grey; most of "
@@ -229,7 +248,8 @@ with tab_map:
                "encoder learned matched the median price of unseen validation sales closely (correlation 0.96). "
                "Boundaries: NYC Open Data, Modified ZIP Code Tabulation Areas.")
 
-with tab_trends:
+
+def trends_by_year_built():
     # ---- Row 4: year built (price and number of homes on separate panels, never a dual axis) ----
     built = df.dropna(subset=["year_built"])
     decade = (built["year_built"] // 10 * 10).clip(lower=1880).astype(int)   # the few pre-1890 homes form one group
@@ -258,7 +278,8 @@ with tab_trends:
                f"(about 78% end in 0 or 5, and many pre-1900 homes are recorded as 1899), so decades are used. "
                f"Prices are shown only for decades with at least {MIN_DECADE_SALES} sales.")
 
-with tab_features:
+
+def feature_correlations():
     # ---- Row 5: correlation heatmap of the model's numeric features ----
     CORR_FEATURES = {   # column in the cleaned data -> label; the same features the model uses (notebook 4b)
         "log_price": "Log price", "log_floor": "Log floor area", "log_land": "Log land area",
@@ -312,8 +333,8 @@ with tab_features:
                 takeaways(notes)
     fig = go.Figure(go.Heatmap(
         z=corr_lower.values, x=corr_lower.columns, y=corr_lower.index, zmin=-1, zmax=1, zmid=0,
-        colorscale=[[0, "#2a78d6"], [0.5, "#f1f0ed"], [1, "#d6542a"]],   # blue = negative, grey = 0, red = positive
-        text=corr_lower.map(lambda v: "" if pd.isna(v) else f"{v:.2f}").values, texttemplate="%{text}", textfont=dict(color="#1f1f1d", size=13),
+        colorscale=[[0, "#2a78d6"], [0.5, THEME["zero"]], [1, "#d6542a"]],   # blue = negative, red = positive
+        text=corr_lower.map(lambda v: "" if pd.isna(v) else f"{v:.2f}").values, texttemplate="%{text}", textfont=dict(color=THEME["cell_text"], size=13),
         xgap=2, ygap=2, hoverongaps=False, colorbar=dict(title=method, thickness=12),
         hovertemplate="%{y} vs %{x}<br>" + method + " correlation %{z:.2f}<extra></extra>"))
     fig.update_layout(height=480, title=f"{method} correlation, {len(df):,} sales",
@@ -327,20 +348,50 @@ with tab_features:
                + (f" Not shown because they have only one value with these filters: {', '.join(constant)}."
                   if constant else ""))
 
-with tab_data:
-    st.caption(f"The {len(df):,} sales that match the filters above.")
+
+def filtered_data():
     table = df[["borough_name", "neighborhood_title", "home_type", "building_class_at_time_of_sale",
                 "gross_square_feet", "land_square_feet", "year_built", "sale_price", "sale_date"]].copy()
     table[["gross_square_feet", "land_square_feet"]] = to_display_area(
         table[["gross_square_feet", "land_square_feet"]]).round()
-    st.dataframe(table.rename(columns={
+    table = table.rename(columns={
         "borough_name": "Borough", "neighborhood_title": "Neighbourhood", "home_type": "Home type",
         "building_class_at_time_of_sale": "Building class", "gross_square_feet": f"Floor area ({unit})",
         "land_square_feet": f"Land area ({unit})", "year_built": "Year built", "sale_price": "Sale price ($)",
-        "sale_date": "Sale date"}),
-        width="stretch", hide_index=True, column_config={
+        "sale_date": "Sale date"})
+    st.dataframe(
+        table, width="stretch", hide_index=True, column_config={
             f"Floor area ({unit})": st.column_config.NumberColumn(format="localized"),
             f"Land area ({unit})": st.column_config.NumberColumn(format="localized"),
             "Year built": st.column_config.NumberColumn(format="%d"),
             "Sale price ($)": st.column_config.NumberColumn(format="localized"),
             "Sale date": st.column_config.DateColumn(format="D MMM YYYY")})
+    left, right = st.columns([3, 1], vertical_alignment="center")
+    left.caption(f"The {len(df):,} sales that match the filters above. Areas are in {unit}.")
+    right.download_button("Download as CSV", table.to_csv(index=False).encode("utf-8"), on_click="ignore",
+                          file_name="nyc_home_sales_2025_filtered.csv", mime="text/csv",
+                          icon=":material/download:", width="stretch")
+
+
+# ---- Tabs. Only the open tab is computed, and it is kept in the page address so a link opens the same view ----
+TABS = {   # name in the address -> (label, sections)
+    "prices": (":material/sell: Prices", [prices_overview, prices_neighbourhoods]),
+    "trends": (":material/timeline: Trends", [trends_by_month, trends_by_year_built]),
+    "map": (":material/map: ZIP code map", [zip_map]),
+    "features": (":material/grid_on: Feature correlations", [feature_correlations]),
+    "data": (":material/table_rows: Data", [filtered_data]),
+}
+labels = [label for label, _ in TABS.values()]
+tabs = st.tabs(labels, key="dash_tab", on_change="rerun",
+               default=TABS[url_value("tab", list(TABS)) or "prices"][0])
+for name, tab, (label, sections) in zip(TABS, tabs, TABS.values()):
+    if tab.open:
+        open_tab = name
+        with tab:
+            for section in sections:
+                section()
+
+set_url(borough=boroughs if len(boroughs) < len(BOROUGHS) else None,
+        type=types if len(types) < len(HOME_TYPES) else None,
+        **({"from": q_from, "to": q_to} if (q_from, q_to) != (1, 4) else {}),
+        tab=open_tab if open_tab != "prices" else None)

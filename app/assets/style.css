@@ -1,7 +1,8 @@
-/* Shared look of the app. Colours match .streamlit/config.toml. */
+/* Shared look of the app. The colour variables (--page, --card, --ink ...) are set for the light or the
+   dark theme by apply_style() in app/utils.py. */
 
 /* Grey page, white cards */
-[data-testid="stApp"] { background: #f5f6f8; }
+[data-testid="stApp"] { background: var(--page); }
 [data-testid="stHeader"] { background: transparent; }
 
 /* Page width and top spacing */
@@ -14,29 +15,29 @@ h3 { margin-top: 0.6rem; }
 
 /* Page header */
 .eyebrow { font-size: 0.74rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
-           color: #2a78d6; margin-bottom: 0.1rem; }
-.page-lead { color: #5b6677; font-size: 1.02rem; margin: -0.3rem 0 0.6rem 0; }
+           color: var(--accent); margin-bottom: 0.1rem; }
+.page-lead { color: var(--muted); font-size: 1.02rem; margin: -0.3rem 0 0.6rem 0; }
 
 /* KPI cards */
-[data-testid="stMetric"] { background: #ffffff; border: 1px solid #dfe3ea; border-radius: 0.75rem;
+[data-testid="stMetric"] { background: var(--card); border: 1px solid var(--line); border-radius: 0.75rem;
                            padding: 0.95rem 1.1rem 0.85rem; box-shadow: 0 1px 2px rgba(16, 30, 51, 0.04); }
-[data-testid="stMetricLabel"] p { font-size: 0.8rem; font-weight: 500; color: #5b6677; }
-[data-testid="stMetricValue"] { font-size: 1.7rem; font-weight: 650; letter-spacing: -0.02em; color: #16202e; }
+[data-testid="stMetricLabel"] p { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+[data-testid="stMetricValue"] { font-size: 1.7rem; font-weight: 650; letter-spacing: -0.02em; color: var(--ink); }
 
 /* Cards made with st.container(border=True, key="card_...") */
-[class*="st-key-card_"], [class*="st-key-chart_"] { background: #ffffff; box-shadow: 0 1px 2px rgba(16, 30, 51, 0.04); }
+[class*="st-key-card_"], [class*="st-key-chart_"] { background: var(--card); box-shadow: 0 1px 2px rgba(16, 30, 51, 0.04); }
 [class*="st-key-card_"] h4 { font-size: 1.02rem; font-weight: 650; padding: 0.1rem 0 0.2rem; }
 .card-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.2rem; height: 2.2rem;
-             border-radius: 0.6rem; background: #e9f1fc; color: #2a78d6; font-weight: 700; font-size: 0.95rem; }
-.card-text { color: #5b6677; font-size: 0.92rem; line-height: 1.5; margin: 0; }
+             border-radius: 0.6rem; background: var(--chip); color: var(--accent); font-weight: 700; font-size: 0.95rem; }
+.card-text { color: var(--muted); font-size: 0.92rem; line-height: 1.5; margin: 0; }
 /* Overview page link cards: icon in a tinted square, "Open" link pinned to the bottom of every card */
 [class*="st-key-card_nav_"] .stMarkdownColoredText span[role="img"] { font-size: 1.35rem; width: 2.2rem; height: 2.2rem;
-    display: inline-flex; align-items: center; justify-content: center; border-radius: 0.6rem; background: #e9f1fc; }
+    display: inline-flex; align-items: center; justify-content: center; border-radius: 0.6rem; background: var(--chip); }
 [class*="st-key-card_nav_"] > div:last-child { margin-top: auto; }
-.step-text { color: #5b6677; font-size: 0.92rem; line-height: 1.5; min-height: 7rem; margin: 0; }
+.step-text { color: var(--muted); font-size: 0.92rem; line-height: 1.5; min-height: 7rem; margin: 0; }
 
 /* Captions */
-[data-testid="stCaptionContainer"] { color: #6b7686; }
+[data-testid="stCaptionContainer"] { color: var(--faint); }
 
 /* Sidebar */
 [data-testid="stSidebar"] [data-testid="stSidebarNavSeparator"] { display: none; }
@@ -64,7 +65,7 @@ h3 { margin-top: 0.6rem; }
 .estimate .row b { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* Tabs (Market dashboard, Model performance) */
-[data-testid="stTabs"] [role="tablist"] { gap: 1.6rem; border-bottom: 1px solid #dfe3ea; }
+[data-testid="stTabs"] [role="tablist"] { gap: 1.6rem; border-bottom: 1px solid var(--line); }
 [data-testid="stTabs"] button[role="tab"] { padding: 0.55rem 0.1rem; }
 [data-testid="stTabs"] button[role="tab"] p { font-size: 0.95rem; font-weight: 500; }
 [data-testid="stTabs"] [role="tabpanel"] { padding-top: 1.1rem; }
@@ -84,14 +85,14 @@ h3 { margin-top: 0.6rem; }
 
 /* Takeaway cards: short findings above the charts */
 .takeaways { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0.8rem; margin: 0 0 0.4rem; }
-.takeaway { background: #ffffff; border: 1px solid #dfe3ea; border-left: 3px solid #2a78d6; border-radius: 0.6rem;
+.takeaway { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0.6rem;
             padding: 0.75rem 1rem 0.7rem; box-shadow: 0 1px 2px rgba(16, 30, 51, 0.04); }
-.takeaway .t-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: #5b6677; }
-.takeaway .t-value { font-size: 1.15rem; font-weight: 650; letter-spacing: -0.01em; color: #16202e; margin: 0.15rem 0 0.1rem; }
-.takeaway .t-note { font-size: 0.84rem; line-height: 1.4; color: #5b6677; }
+.takeaway .t-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.takeaway .t-value { font-size: 1.15rem; font-weight: 650; letter-spacing: -0.01em; color: var(--ink); margin: 0.15rem 0 0.1rem; }
+.takeaway .t-note { font-size: 0.84rem; line-height: 1.4; color: var(--muted); }
 .takeaway .t-delta { font-weight: 650; white-space: nowrap; }
-.takeaway .t-delta.up { color: #0f7a55; }
-.takeaway .t-delta.down { color: #b4411a; }
+.takeaway .t-delta.up { color: var(--up); }
+.takeaway .t-delta.down { color: var(--down); }
 
 /* Landing page hero */
 .st-key-hero { background: linear-gradient(150deg, #0f1e33 0%, #17345c 100%); border-radius: 1rem;
@@ -105,8 +106,8 @@ h3 { margin-top: 0.6rem; }
 
 /* Footer */
 .footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4rem 1.5rem; margin-top: 2.5rem;
-          padding-top: 1rem; border-top: 1px solid #dfe3ea; font-size: 0.8rem; color: #6b7686; }
-.footer a { color: #2a78d6; text-decoration: none; }
+          padding-top: 1rem; border-top: 1px solid var(--line); font-size: 0.8rem; color: var(--faint); }
+.footer a { color: var(--accent); text-decoration: none; }
 .footer a:hover { text-decoration: underline; }
 
 @media (max-width: 640px) {
@@ -116,3 +117,9 @@ h3 { margin-top: 0.6rem; }
 
 /* Streamlit Cloud adds "Fork" and GitHub buttons to the top bar; the footer links to the source instead */
 [data-testid="stToolbarActions"] { display: none; }
+
+/* Empty state: shown where the charts would be when there is nothing to show */
+.empty-state { background: var(--card); border: 1px dashed var(--line); border-radius: 0.75rem; padding: 2.6rem 1.5rem;
+               text-align: center; margin-top: 0.6rem; }
+.empty-state .e-title { font-size: 1.1rem; font-weight: 650; color: var(--ink); margin-bottom: 0.3rem; }
+.empty-state .e-text { font-size: 0.92rem; color: var(--muted); }

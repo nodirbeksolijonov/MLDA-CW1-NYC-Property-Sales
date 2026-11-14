@@ -1,18 +1,34 @@
+# The app follows the visitor's light or dark setting. Colours used by the custom styles are in app/utils.py.
 [theme]
-base = "light"
 primaryColor = "#2a78d6"
-# Charts, tables and inputs are white; the grey page background is set in app/assets/style.css
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#ffffff"
-textColor = "#16202e"
-borderColor = "#dfe3ea"
 showWidgetBorder = true
 baseRadius = "0.6rem"
 # Inter is loaded from Google Fonts; without internet the app falls back to the system sans-serif
 font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
 
-[theme.sidebar]
+# Light: charts, tables and inputs are white on a light grey page (the page colour is set in app/assets/style.css)
+[theme.light]
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#16202e"
+borderColor = "#dfe3ea"
+
+[theme.light.sidebar]
 backgroundColor = "#0f1e33"
+secondaryBackgroundColor = "#1a2c47"
+textColor = "#e8edf5"
+borderColor = "#2a3d5c"
+primaryColor = "#6aa9f0"
+
+# Dark: the same layout on navy
+[theme.dark]
+backgroundColor = "#131f33"
+secondaryBackgroundColor = "#131f33"
+textColor = "#e8edf5"
+borderColor = "#2a3d5c"
+
+[theme.dark.sidebar]
+backgroundColor = "#0b1626"
 secondaryBackgroundColor = "#1a2c47"
 textColor = "#e8edf5"
 borderColor = "#2a3d5c"

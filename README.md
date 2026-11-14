@@ -114,6 +114,13 @@ The app opens at http://localhost:8501 and has five pages:
 | **Model performance** | Four tabs: comparison of the four tuned models, predicted vs actual on the test set, errors by borough and price band, feature importance |
 | **Data & method** | Data source, cleaning steps, features and limitations |
 
+Other features of the app:
+
+- **Shareable links.** The page address follows the dashboard filters, the open tab and the predictor inputs, so a copied link opens the same view (for example `…/dashboard?borough=Queens&tab=map`).
+- **Downloads.** The filtered sales and the comparable sales can be downloaded as CSV.
+- **Light and dark theme.** The app starts in the visitor's system setting and has a Light / Dark switch in the sidebar; charts and the map are restyled to match.
+- **Speed.** Only the open tab is computed.
+
 The app reads the files saved by the notebook (`data/processed/`, `models/`). They are included in the repository, so the app works without re-running the notebook. Re-running the notebook regenerates them.
 
 ## Licence
