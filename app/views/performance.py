@@ -81,7 +81,7 @@ def model_comparison():
     st.markdown(f"""
     - The two ensemble models are best and practically tied; both beat the linear baseline, KNN is weakest.
     - **{FINAL_MODEL_NAME}** was chosen for its best cross-validation score, its smaller gap between training and
-      validation error (less overfitting) and its much smaller saved size (0.5 MB vs about 35 MB for the Random Forest).
+      validation error (less overfitting) and its much smaller saved size (1.5 MB vs about 35 MB for the Random Forest).
     - Test results were measured only for the final model and two reference models, once, after all choices were made.
     """)
 

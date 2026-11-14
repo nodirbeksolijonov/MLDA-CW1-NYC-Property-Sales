@@ -32,7 +32,7 @@ ML_CW/
 ├── notebooks/
 │   └── MLDA_CW1_NYC_Property_Sales.ipynb   # main analysis (EDA → preparation → models → evaluation)
 ├── models/
-│   ├── final_model.joblib              # final pipeline (preprocessing + Gradient Boosting), 0.5 MB
+│   ├── final_model.joblib              # final pipeline (preprocessing + Gradient Boosting), 1.5 MB
 │   └── results/                        # model comparison, test predictions, feature importance
 ├── app/
 │   ├── streamlit_app.py                # app entry point (multi-page navigation)
