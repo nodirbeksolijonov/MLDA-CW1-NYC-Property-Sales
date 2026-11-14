@@ -77,12 +77,14 @@ def model_comparison():
                                      "Test mean abs. error": "${:,.0f}", "Test R²": "{:.3f}"}, na_rep="–"),
                  width="stretch")
     st.caption("Errors are RMSE on the log price (lower is better). CV = 5-fold cross-validation on the training "
-               "set. KNN was not run on the test set, so its test columns are empty.")
+               "set. Test scores come from one evaluation on the 2,800 test sales, after all choices were made.")
     st.markdown(f"""
     - The two ensemble models are best and practically tied; both beat the linear baseline, KNN is weakest.
     - **{FINAL_MODEL_NAME}** was chosen for its best cross-validation score, its smaller gap between training and
       validation error (less overfitting) and its much smaller saved size (1.5 MB vs about 35 MB for the Random Forest).
-    - Test results were measured only for the final model and two reference models, once, after all choices were made.
+    - Every model was scored on the test set once, after all choices were made. The picture is the same as on the
+      validation set: the two ensemble models tied, ahead of the linear baseline and KNN, and the final model's
+      error almost unchanged (0.266 on validation, 0.270 on test).
     """)
 
 
@@ -106,8 +108,11 @@ def predicted_vs_actual():
         fig.update_traces(marker_size=8, marker_line_width=0, hovertemplate=(
             "%{customdata[0]}, %{customdata[1]}<br>Actual %{x:$,.0f}<br>Predicted %{y:$,.0f}"
             "<br>Error %{customdata[2]:.0%}<extra></extra>"))
-        fig.update_layout(xaxis_title="Actual price", yaxis_title="Predicted price",
-                          xaxis_tickformat="$,.2s", yaxis_tickformat="$,.2s")
+        # A few round prices as axis labels; a log axis would otherwise label every step in between
+        ticks = [t for t in [1e5, 2e5, 5e5, 1e6, 2e6, 5e6, 1e7, 2e7, 5e7] if lims[0] <= t <= lims[1]]
+        price_axis = dict(tickvals=ticks, ticktext=[money(t) for t in ticks])
+        fig.update_layout(xaxis=dict(title="Actual price", **price_axis),
+                          yaxis=dict(title="Predicted price", **price_axis))
         chart(fig)
         st.caption("Points on the dashed line are perfect predictions.")
     with right:
