@@ -17,9 +17,11 @@ page_header("Market dashboard", "1–3 family market sales in New York City, Jan
 QUARTERS = [1, 2, 3, 4]
 seed("dash_boroughs", url_list("borough", BOROUGHS) or BOROUGHS)
 seed("dash_types", url_list("type", HOME_TYPES) or HOME_TYPES)
-url_quarters = (url_value("from", QUARTERS, int) or 1, url_value("to", QUARTERS, int) or 4)
-if url_quarters[0] > url_quarters[1]:
-    url_quarters = (1, 4)
+# Like the starting tab, the starting quarter range is read from the address only when the page is opened
+if "dash_quarters" not in st.session_state:
+    url_quarters = (url_value("from", QUARTERS, int) or 1, url_value("to", QUARTERS, int) or 4)
+    st.session_state["dash_quarters_start"] = url_quarters if url_quarters[0] <= url_quarters[1] else (1, 4)
+url_quarters = st.session_state["dash_quarters_start"]
 with card("filters"):
     f1, f2, f3 = st.columns([5, 4, 2], gap="medium")
     boroughs = f1.multiselect("Borough", BOROUGHS, key="dash_boroughs")
@@ -382,8 +384,11 @@ TABS = {   # name in the address -> (label, sections)
     "data": (":material/table_rows: Data", [filtered_data]),
 }
 labels = [label for label, _ in TABS.values()]
-tabs = st.tabs(labels, key="dash_tab", on_change="rerun",
-               default=TABS[url_value("tab", list(TABS)) or "prices"][0])
+# The starting tab comes from the page address, but only when the page is opened. It must not change while the
+# visitor is on the page: if it followed the address, every second click on a tab would show an empty tab.
+if "dash_tab" not in st.session_state:
+    st.session_state["dash_tab_start"] = TABS[url_value("tab", list(TABS)) or "prices"][0]
+tabs = st.tabs(labels, key="dash_tab", on_change="rerun", default=st.session_state["dash_tab_start"])
 for name, tab, (label, sections) in zip(TABS, tabs, TABS.values()):
     if tab.open:
         open_tab = name

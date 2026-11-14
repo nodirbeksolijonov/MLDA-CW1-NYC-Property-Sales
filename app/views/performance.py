@@ -208,8 +208,11 @@ TABS = {   # name in the address -> (label, content)
     "bias": (":material/balance: Where it struggles", where_it_struggles),
     "drivers": (":material/key: What drives the price", price_drivers),
 }
+# The starting tab comes from the page address only when the page is opened (see the note in dashboard.py)
+if "perf_tab" not in st.session_state:
+    st.session_state["perf_tab_start"] = TABS[url_value("tab", list(TABS)) or "comparison"][0]
 tabs = st.tabs([label for label, _ in TABS.values()], key="perf_tab", on_change="rerun",
-               default=TABS[url_value("tab", list(TABS)) or "comparison"][0])
+               default=st.session_state["perf_tab_start"])
 for name, tab, (label, content) in zip(TABS, tabs, TABS.values()):
     if tab.open:
         open_tab = name
