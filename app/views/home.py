@@ -105,3 +105,5 @@ for i, (col, (title, text)) in enumerate(zip(st.columns(4), STEPS), start=1):
         st.html(f'<span class="card-icon">{i}</span>')
         st.markdown(f"#### {title}")
         st.html(f'<p class="step-text">{text}</p>')
+st.page_link("views/lab.py", label="Train these models yourself, with your own settings, in the Model lab",
+             icon=":material/science:")

@@ -21,6 +21,7 @@ pages = st.navigation({
     ],
     "Model": [
         st.Page("views/performance.py", title="Model performance", icon=":material/query_stats:"),
+        st.Page("views/lab.py", title="Model lab", icon=":material/science:"),
         st.Page("views/data.py", title="Data & method", icon=":material/description:"),
     ],
 })
@@ -57,7 +58,7 @@ if theme_request in THEME_LABELS and theme_request != theme_in_use:
     # the filters and inputs) brings the same view back in the new theme.
     st.html(f"""<script>
 (() => {{
-  const pages = ["", "dashboard", "predictor", "performance", "data"];
+  const pages = ["", "dashboard", "predictor", "performance", "lab", "data"];
   const base = window.location.pathname.replace(/[^/]*$/, "");
   try {{
     pages.forEach(p => window.localStorage.setItem("stActiveTheme-" + base + p + "-v2", JSON.stringify("{theme_request}")));
