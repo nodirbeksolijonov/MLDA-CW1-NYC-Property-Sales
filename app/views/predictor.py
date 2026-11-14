@@ -9,7 +9,10 @@ from utils import (BOROUGHS, BUILDING_CLASSES, HIGHLIGHT, HOME_TYPES, MUTED, SQF
 
 homes = load_homes()
 model = load_model()
-test_pred = load_results("test_predictions")
+# Errors behind the price ranges: out-of-fold cross-validation errors on the training and validation homes,
+# and the share of test sales that fell inside each range (notebook Section 6.2)
+cv_res = load_results("cv_residuals")["residual_log"]
+range_check = load_results("price_ranges")["share of test sales inside"]
 
 page_header("Price predictor",
             "Estimate the 2025 sale price of a 1–3 family home with the final Gradient Boosting model")
@@ -151,11 +154,10 @@ X = build_features(borough, neighborhood, zip_code, home_type, building_class,
                    gross if size_known else None, land if size_known else None, year_built, quarter)
 estimate = float(np.exp(model.predict(X)[0]))
 
-# Realistic range from the model's errors on the unseen test set:
+# Realistic range from the model's cross-validation errors (the test set is used only to check it):
 # actual = predicted / exp(residual), so residual quantiles turn into a price range
-res = test_pred["residual_log"]
-low50, high50 = estimate / np.exp(res.quantile([0.75, 0.25]))
-low80, high80 = estimate / np.exp(res.quantile([0.90, 0.10]))
+low50, high50 = estimate / np.exp(cv_res.quantile([0.75, 0.25]))
+low80, high80 = estimate / np.exp(cv_res.quantile([0.90, 0.10]))
 
 
 def position(price):
@@ -177,8 +179,11 @@ with result_col:
   <div class="row"><span>Likely range · 50% of sales</span><b>{money(low50)} – {money(high50)}</b></div>
   <div class="row"><span>Wide range · 80% of sales</span><b>{money(low80)} – {money(high80)}</b></div>
 </div>""")
-    st.caption("The ranges come from how far the model's predictions were from the real prices of 2,800 test-set "
-               "sales it had never seen: half of those sales fell inside the 50% range, 80% inside the wide range.")
+    st.caption(f"The ranges come from the model's cross-validation errors on the {len(cv_res):,} training and "
+               f"validation sales, each predicted by a model that had not seen it. Checked once on test sales it had "
+               f"never seen: "
+               f"{range_check['50% range']:.0%} fell inside the 50% range and {range_check['80% range']:.0%} inside "
+               f"the wide range.")
 
     if borough == "Manhattan":
         st.warning("Manhattan has very few 1–3 family sales (the model's median error there is about 20%), "
@@ -221,10 +226,13 @@ comps = similar.dropna(subset=["gross_square_feet"]).copy()
 if size_known and not comps.empty:
     comps["size_diff"] = (comps["gross_square_feet"] / gross - 1).abs()
     comps = comps[comps["size_diff"] <= 0.3].sort_values("size_diff")
+else:   # no size to compare with, so show the most recent sales instead
+    comps = comps.sort_values("sale_date", ascending=False)
 comps = comps.head(10)
 
 if comps.empty:
-    st.info(f"No {home_type} sales of a similar size in {neighborhood.title()} in 2025.")
+    st.info(f"No {home_type} sales {'of a similar size ' if size_known else 'with a recorded size '}"
+            f"in {neighborhood.title()} in 2025.")
 else:
     left, right = st.columns([3, 2])
     with left:
@@ -257,8 +265,12 @@ else:
         fig.update_layout(height=260, title="Estimate vs comparable sales", xaxis_tickformat="$,.2s",
                           yaxis_visible=False, legend=dict(orientation="h", y=-0.35), margin=dict(t=50))
         chart(fig)
-    st.caption("Comparables: same neighbourhood and home type, floor area within 30% of the home described "
-               "above, closest size first.")
+    if size_known:
+        st.caption("Comparables: same neighbourhood and home type, floor area within 30% of the home described "
+                   "above, closest size first.")
+    else:
+        st.caption("Comparables: same neighbourhood and home type. The size is unknown, so sales are not "
+                   "filtered by size; the 10 most recent sales with a recorded size are shown.")
 
 with st.expander("What the model receives"):
     st.dataframe(X, hide_index=True, width="stretch")

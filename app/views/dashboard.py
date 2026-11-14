@@ -15,8 +15,17 @@ page_header("Market dashboard", "1–3 family market sales in New York City, Jan
 
 # ---- Filters, in one row above the charts. A shared link can carry them in the page address ----
 QUARTERS = [1, 2, 3, 4]
-seed("dash_boroughs", url_list("borough", BOROUGHS) or BOROUGHS)
-seed("dash_types", url_list("type", HOME_TYPES) or HOME_TYPES)
+
+
+def url_filter(name, options):
+    """A filter from the page address: "none" means it was cleared, missing means everything is selected."""
+    if st.query_params.get_all(name) == ["none"]:
+        return []
+    return url_list(name, options) or options
+
+
+seed("dash_boroughs", url_filter("borough", BOROUGHS))
+seed("dash_types", url_filter("type", HOME_TYPES))
 # Like the starting tab, the starting quarter range is read from the address only when the page is opened
 if "dash_quarters" not in st.session_state:
     url_quarters = (url_value("from", QUARTERS, int) or 1, url_value("to", QUARTERS, int) or 4)
@@ -32,9 +41,21 @@ with card("filters"):
     st.caption(":material/link: The page address follows the filters and the open tab, so you can copy it to share "
                "this exact view.")
 
+
+
+def share_view(tab):
+    """Write the filters and the open tab to the page address (only what differs from the defaults)."""
+    set_url(borough=(boroughs or "none") if len(boroughs) < len(BOROUGHS) else None,
+            type=(types or "none") if len(types) < len(HOME_TYPES) else None,
+            **({"from": q_from, "to": q_to} if (q_from, q_to) != (1, 4) else {}),
+            tab=tab if tab != "prices" else None)
+
+
 df = homes[homes["borough_name"].isin(boroughs) & homes["home_type"].isin(types)
            & homes["sale_quarter"].between(q_from, q_to)]
 if df.empty:
+    # the address must follow the filters here too, or a copied link would open the previous view
+    share_view(url_value("tab", ["prices", "trends", "map", "features", "data"]) or "prices")
     if not boroughs or not types:
         empty_state("Nothing selected", "Choose at least one borough and one home type above to see the market.")
     else:
@@ -396,7 +417,4 @@ for name, tab, (label, sections) in zip(TABS, tabs, TABS.values()):
             for section in sections:
                 section()
 
-set_url(borough=boroughs if len(boroughs) < len(BOROUGHS) else None,
-        type=types if len(types) < len(HOME_TYPES) else None,
-        **({"from": q_from, "to": q_to} if (q_from, q_to) != (1, 4) else {}),
-        tab=open_tab if open_tab != "prices" else None)
+share_view(open_tab)
