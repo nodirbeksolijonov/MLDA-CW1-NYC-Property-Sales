@@ -18,11 +18,15 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler, TargetEncoder
+from threadpoolctl import threadpool_limits
 
 from utils import (FINAL_MODEL_NAME, HIGHLIGHT, MUTED, card, chart, load_homes, load_results, money, page_footer,
                    page_header, takeaways)
 
 RANDOM_STATE = 42   # the same seed as the notebook
+# Training uses at most two threads. With more, the tree models get slower, not faster, on a small server:
+# the threads compete for the same processor (measured: minutes instead of seconds on the hosting server).
+TRAIN_THREADS = 2
 NUMERIC = ["log_gross_sqft", "log_land_sqft", "floor_area_ratio", "building_age"]
 ONEHOT = ["borough_name", "building_class_at_time_of_sale", "sale_quarter"]
 LOCATION_OPTIONS = {   # label -> columns that are target-encoded
@@ -101,7 +105,7 @@ def make_model(algorithm: str, params: dict):
     if algorithm == "K-Nearest Neighbours":
         return KNeighborsRegressor(**params)
     if algorithm == "Random Forest":
-        return RandomForestRegressor(random_state=RANDOM_STATE, n_jobs=-1, **params)
+        return RandomForestRegressor(random_state=RANDOM_STATE, n_jobs=TRAIN_THREADS, **params)
     return HistGradientBoostingRegressor(early_stopping=False, random_state=RANDOM_STATE, **params)
 
 
@@ -112,11 +116,13 @@ def train_and_score(algorithm: str, params: tuple, log_target: bool, scale: bool
     pipe = Pipeline([("prep", make_preprocessor(scale, LOCATION_OPTIONS[location_label])),
                      ("model", make_model(algorithm, dict(params)))])
     start = time.perf_counter()
-    pipe.fit(X.iloc[train], np.log(price.iloc[train]) if log_target else price.iloc[train])
+    with threadpool_limits(limits=TRAIN_THREADS):
+        pipe.fit(X.iloc[train], np.log(price.iloc[train]) if log_target else price.iloc[train])
     seconds = time.perf_counter() - start
 
     def predict_dollars(rows):
-        pred = pipe.predict(X.iloc[rows])
+        with threadpool_limits(limits=TRAIN_THREADS):
+            pred = pipe.predict(X.iloc[rows])
         # a model trained on dollars can predict a price near or below zero; keep it positive for the log scale
         return np.exp(pred) if log_target else np.clip(pred, 10_000, None)
 
@@ -214,7 +220,7 @@ if "lab_settings" not in st.session_state:
 
 # ---- Result of the last trained model (kept on screen while the choices above are changed) ----
 shown = st.session_state["lab_settings"]
-with st.spinner(f"Training {shown[0]}…"):
+with st.spinner(f"Training {shown[0]}… A forest or a boosting model with many trees can take up to a minute."):
     result = train_and_score(*shown)
 if shown != settings:
     st.warning("The choices above have changed since this model was trained. Press **Train the model** to update "
