@@ -41,8 +41,8 @@ with st.container(key="hero"):
         st.html(f"""
 <div class="eyebrow">Machine Learning and Data Analytics coursework · Student 00017544</div>
 <h1 class="hero-title">What is a New York home worth?</h1>
-<p class="hero-lead">All <b>{len(homes):,}</b> one- to three-family homes sold in New York City in 2025, explored
-and priced by a machine learning model that is typically within <b>{final['test Median APE']:.1%}</b> of the real
+<p class="hero-lead"><b>{len(homes):,}</b> qualifying sales of one- to three-family homes in New York City in
+2025, explored and priced by a machine learning model that is typically within <b>{final['test Median APE']:.1%}</b> of the real
 sale price.</p>""")
         b1, b2 = st.columns([1, 1], gap="small")
         if b1.button("Estimate a price", type="primary", icon=":material/calculate:", width="stretch"):

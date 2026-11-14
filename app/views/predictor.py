@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from utils import (BOROUGHS, BUILDING_CLASSES, HIGHLIGHT, HOME_TYPES, MUTED, area_unit, build_features,
+from utils import (BOROUGHS, BUILDING_CLASSES, HIGHLIGHT, HOME_TYPES, MUTED, SQFT_PER_M2, area_unit, build_features,
                    card, chart, load_homes, load_model, load_results, money, page_header, palette, seed, set_url, takeaways,
                    to_display_area, to_sqft, url_value)
 
@@ -85,6 +85,25 @@ with form_col, card("inputs"):
         help="The model then fills in typical sizes, as it does for missing values in the data")
     gross_default = default_value("gross_square_feet", gross_lo, gross_hi, to_display_area)
     land_default = default_value("land_square_feet", land_lo, land_hi, to_display_area)
+    # When the area unit is switched, the sizes already typed are carried over (converted), not reset to the
+    # defaults. `restore` holds, per size, (value shown, value it was converted from, whether it was rounded), so switching
+    # back returns the original number exactly.
+    size_limits = {"gross": (gross_lo, gross_hi), "land": (land_lo, land_hi)}
+    memo = st.session_state.get(f"pred_sizes_{context}")
+    restore = {}
+    if memo and memo["unit"] == unit:
+        restore = memo["restore"]
+    elif memo and f"pred_gross_{context}_{memo['unit']}" in st.session_state:
+        for name, (lo, hi) in size_limits.items():
+            typed = memo[name]
+            shown, original, was_rounded = memo["restore"].get(name, (None, None, False))
+            if typed == shown:   # unchanged since the last switch: return the value it came from
+                converted, rounded = original, not was_rounded
+            else:
+                converted, rounded = round(typed / SQFT_PER_M2 if unit == "m²" else typed * SQFT_PER_M2), True
+            converted = int(min(max(converted, lo), hi))
+            st.session_state[f"pred_{name}_{context}_{unit}"] = converted
+            restore[name] = (converted, typed, rounded)
     # sizes in a shared link are in the link's unit, so they are only used when that is the unit shown
     same_unit = (st.query_params.get("unit") == "m2") == (unit == "m²")
     seed(f"pred_gross_{context}_{unit}",
@@ -95,8 +114,20 @@ with form_col, card("inputs"):
                                step=step, disabled=not size_known)
     land_in = c2.number_input(f"Land area ({unit})", land_lo, land_hi, key=f"pred_land_{context}_{unit}",
                               step=step, disabled=not size_known)
+    st.session_state[f"pred_sizes_{context}"] = {"unit": unit, "gross": gross_in, "land": land_in, "restore": restore}
     # The model was trained on square feet, so convert back before predicting
-    gross, land = to_sqft(gross_in), to_sqft(land_in)
+
+    def model_sqft(name, typed):
+        """ft² for the model. A size carried over from the other unit is shown rounded (3,000 ft² as 279 m²),
+        so the value it came from is used and the estimate does not move when only the unit is switched."""
+        shown, original, rounded = restore.get(name, (None, None, False))
+        lo, hi = size_limits[name]
+        # typed here, edited since the switch, or cut off at the input's limit: use the number as shown
+        if not rounded or typed != shown or typed in (lo, hi):
+            return to_sqft(typed)
+        return original if unit == "m²" else original * SQFT_PER_M2
+
+    gross, land = model_sqft("gross", gross_in), model_sqft("land", land_in)
     seed("pred_quarter", url_value("q", [1, 2, 3, 4], int) or 4)
     quarter = c3.selectbox("Quarter of sale (2025)", [1, 2, 3, 4], key="pred_quarter", format_func=lambda q: f"Q{q}")
 
